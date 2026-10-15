@@ -8,7 +8,7 @@ import java.util.List;
 
 public interface CurricularUnitRepository extends JpaRepository<CurricularUnit, Long> {
 
-    CurricularUnit findByCurricularUnitCode(String curricularUnitCode);
+    CurricularUnit findByCodeUnit(String codeUnit);
 
     List<CurricularUnit> findByNameUnitContainingIgnoreCase(String name);
 
