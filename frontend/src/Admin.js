@@ -1,6 +1,6 @@
 
 export async function loginAdmin(email, password) { //funçao exportada para adminLogin 
-  const resposta = await fetch("/api/admin", {
+  const response = await fetch("/api/admin", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -11,9 +11,9 @@ export async function loginAdmin(email, password) { //funçao exportada para adm
     }),
   });
 
-  const dados = await resposta.json();
+  const dados = await response.json();
 
-  if (!resposta.ok) {
+  if (!response.ok) {
     throw new Error(dados.erro || "Erro ao fazer login");
   }
 

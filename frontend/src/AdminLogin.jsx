@@ -21,7 +21,7 @@ export default function Login() {
 };
   return (
     <div className="login-page">
-      {/* Formas de fundo */}
+      {/* Background forms */}
       <svg className="blob blob-top" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
         <defs>
           <linearGradient id="gTop" x1="0" y1="1" x2="1" y2="0">
@@ -47,7 +47,7 @@ export default function Login() {
           fill="url(#gBottom)"
         />
       </svg>
-        {/*quadrado do login*/}
+        {/*login square*/}
       <form className="card" onSubmit={handleSubmit}>
         <div className="logo">UPT</div>
 
