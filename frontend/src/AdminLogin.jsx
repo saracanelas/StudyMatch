@@ -10,7 +10,11 @@ export default function Login() {
   e.preventDefault();
 
   try {
-    await loginAdmin(email, password);
+    const dados = await loginAdmin(email, password);
+
+    if (dados.utilizador) {
+      onLogin();
+    }
   } catch (err) {
     console.error("Erro ao fazer login:", err.message);
   }
@@ -73,7 +77,7 @@ export default function Login() {
         </label>
 
         <button type="submit" className="btn-login">Login</button>
-
+        
       </form>
     </div>
   );
