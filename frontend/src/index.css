@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 @theme {
-    --color-rosa: #fde5f5;
-    --color-lilas: #DBB8E3;
-    --color-lavanda: #fbeefb;
-    --color-roxo: #E9D7FA;
-    --color-azul: #CFD2FF;
-    --color-texto: #2D2A3E;
+    --color-pink: #fde5f5;
+    --color-lilac: #DBB8E3;
+    --color-lavender: #fbeefb;
+    --color-purple: #E9D7FA;
+    --color-blue: #CFD2FF;
+    --color-ink: #2D2A3E;
 }

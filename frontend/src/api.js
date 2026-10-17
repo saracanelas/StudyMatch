@@ -1,92 +1,92 @@
-const BASE_URL = "/api"; // o Vite reencaminha /api para o backend (ver vite.config.js)
+const BASE_URL = "/api"; // Vite forwards /api to the backend (see vite.config.js)
 
 /** Converts a course as sent by the backend into the shape used by the pages. */
-const cursoDoApi = (c) => ({
-    id: c.idCourse,
-    nome: c.nameCourse,
-    codigo: c.codeCourse,
-    ucIds: (c.curricularUnits ?? []).map((u) => u.idUnit),
+const courseFromApi = (course) => ({
+    id: course.idCourse,
+    name: course.nameCourse,
+    code: course.codeCourse,
+    unitIds: (course.curricularUnits ?? []).map((unit) => unit.idUnit),
 });
 
 /** Converts a curricular unit as sent by the backend into the shape used by the pages. */
-const ucDoApi = (u) => ({ id: u.idUnit, nome: u.nameUnit, codigo: u.codeUnit });
+const curricularUnitFromApi = (unit) => ({ id: unit.idUnit, name: unit.nameUnit, code: unit.codeUnit });
 
 /** Sends a request to the backend and returns the JSON body, throwing an Error with the server message on failure. */
-async function pedido(caminho, opcoes) {
-    const resposta = await fetch(`${BASE_URL}${caminho}`, {
+async function sendRequest(path, options) {
+    const response = await fetch(`${BASE_URL}${path}`, {
         headers: { "Content-Type": "application/json" },
-        ...opcoes,
+        ...options,
     });
 
-    if (!resposta.ok) {
-        let mensagem = `Erro ${resposta.status} ao contactar o servidor`;
+    if (!response.ok) {
+        let errorMessage = `Erro ${response.status} ao contactar o servidor`;
         try {
-            const corpo = await resposta.json();
-            mensagem = corpo.message || corpo.error || mensagem;
+            const body = await response.json();
+            errorMessage = body.message || body.error || errorMessage;
         } catch {
-            // a resposta de erro não tinha JSON; fica a mensagem genérica
+            // the error response had no JSON body; keep the generic message
         }
-        throw new Error(mensagem);
+        throw new Error(errorMessage);
     }
-    return resposta.status === 204 ? null : resposta.json();
+    return response.status === 204 ? null : response.json();
 }
 
-// ---------- Cursos ----------
+// ---------- Courses ----------
 /** Returns every course. */
-export async function listarCursos() {
-    const dados = await pedido("/courses");
-    return dados.map(cursoDoApi);
+export async function getAllCourses() {
+    const courses = await sendRequest("/courses");
+    return courses.map(courseFromApi);
 }
 
 /** Returns the course with the given id. */
-export async function obterCurso(id) {
-    return cursoDoApi(await pedido(`/courses/${id}`));
+export async function getCourseById(id) {
+    return courseFromApi(await sendRequest(`/courses/${id}`));
 }
 
-/** Creates a course from { nome, codigo } and returns it. */
-export async function criarCurso(dados) {
-    const criado = await pedido("/courses", {
+/** Creates a course from { name, code } and returns it. */
+export async function createCourse(course) {
+    const createdCourse = await sendRequest("/courses", {
         method: "POST",
-        body: JSON.stringify({ codeCourse: dados.codigo, nameCourse: dados.nome }),
+        body: JSON.stringify({ codeCourse: course.code, nameCourse: course.name }),
     });
-    return cursoDoApi(criado);
+    return courseFromApi(createdCourse);
 }
 
-/** Saves the name, code and associated UCs of a course and returns the updated course. */
-export async function atualizarCurso(id, dados) {
-    // 1.º atualiza o nome e o código; 2.º atualiza as UCs associadas
-    await pedido(`/courses/${id}`, {
+/** Saves the name, code and associated curricular units of a course and returns the updated course. */
+export async function updateCourse(id, course) {
+    // 1st: update the name and code; 2nd: update the associated curricular units
+    await sendRequest(`/courses/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ codeCourse: dados.codigo, nameCourse: dados.nome }),
+        body: JSON.stringify({ codeCourse: course.code, nameCourse: course.name }),
     });
-    const atualizado = await pedido(`/courses/${id}/units`, {
+    const updatedCourse = await sendRequest(`/courses/${id}/units`, {
         method: "PUT",
-        body: JSON.stringify(dados.ucIds),
+        body: JSON.stringify(course.unitIds),
     });
-    return cursoDoApi(atualizado);
+    return courseFromApi(updatedCourse);
 }
 
-// ---------- UCs ----------
+// ---------- Curricular units ----------
 /** Returns every curricular unit. */
-export async function listarUcs() {
-    const dados = await pedido("/units");
-    return dados.map(ucDoApi);
+export async function getAllCurricularUnits() {
+    const units = await sendRequest("/units");
+    return units.map(curricularUnitFromApi);
 }
 
-/** Creates a curricular unit from { nome, codigo } and returns it. */
-export async function criarUc(dados) {
-    const criada = await pedido("/units", {
+/** Creates a curricular unit from { name, code } and returns it. */
+export async function createCurricularUnit(unit) {
+    const createdUnit = await sendRequest("/units", {
         method: "POST",
-        body: JSON.stringify({ codeUnit: dados.codigo, nameUnit: dados.nome }),
+        body: JSON.stringify({ codeUnit: unit.code, nameUnit: unit.name }),
     });
-    return ucDoApi(criada);
+    return curricularUnitFromApi(createdUnit);
 }
 
 /** Saves the name and code of a curricular unit and returns the updated unit. */
-export async function atualizarUc(id, dados) {
-    const atualizada = await pedido(`/units/${id}`, {
+export async function updateCurricularUnit(id, unit) {
+    const updatedUnit = await sendRequest(`/units/${id}`, {
         method: "PUT",
-        body: JSON.stringify({ codeUnit: dados.codigo, nameUnit: dados.nome }),
+        body: JSON.stringify({ codeUnit: unit.code, nameUnit: unit.name }),
     });
-    return ucDoApi(atualizada);
+    return curricularUnitFromApi(updatedUnit);
 }
