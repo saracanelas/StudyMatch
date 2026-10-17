@@ -1,6 +1,8 @@
 package com.studymatch.studymatch.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,9 +15,13 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idCourse;
 
+    @NotBlank
+    @Size(max = 12)
     @Column(nullable = false, unique = true, length = 12)
     private String codeCourse;
 
+    @NotBlank
+    @Size(max = 50)
     @Column(nullable = false, length = 50)
     private String nameCourse;
 
@@ -28,8 +34,14 @@ public class Course {
     private List<CurricularUnit> curricularUnits = new ArrayList<>();
 
 
+    /**
+     * Empty constructor required by JPA.
+     */
     public Course() {}
 
+    /**
+     * Creates a course with the given id, code and name.
+     */
     public Course(Long idCourse, String codeCourse, String nameCourse) {
         this.idCourse = idCourse;
         this.codeCourse = codeCourse;
@@ -37,22 +49,44 @@ public class Course {
     }
 
 
+    /**
+     * Returns the course id.
+     */
     public Long getIdCourse() {
         return idCourse;
     }
 
+    /**
+     * Returns the course code.
+     */
     public String getCodeCourse() {
         return codeCourse;
     }
 
+    /**
+     * Returns the course name.
+     */
     public String getNameCourse() {
         return nameCourse;
     }
 
+    /**
+     * Returns the curricular units associated with this course.
+     */
+    public List<CurricularUnit> getCurricularUnits() {
+        return curricularUnits;
+    }
+
+    /**
+     * Changes the course code.
+     */
     public void setCodeCourse(String codeCourse) {
         this.codeCourse = codeCourse;
     }
 
+    /**
+     * Changes the course name.
+     */
     public void setNameCourse(String nameCourse) {
         this.nameCourse = nameCourse;
     }
@@ -68,6 +102,9 @@ public class Course {
         unit.getCourses().add(this);
     }
 
+    /**
+     * Removes a curricular unit from this course, on both sides of the relation.
+     */
     public void removeCurricularUnit(CurricularUnit unit) {
         this.curricularUnits.remove(unit);
         unit.getCourses().remove(this);
