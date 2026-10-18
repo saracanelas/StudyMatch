@@ -1,6 +1,6 @@
 
-export async function loginAdmin(email, password) { //funçao exportada para adminLogin 
-  const response = await fetch("/api/admin", {
+export async function loginAdmin(email, password) { //method exported to adminLogin
+  const response = await fetch("/api/auth/login", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -11,19 +11,11 @@ export async function loginAdmin(email, password) { //funçao exportada para adm
     }),
   });
 
-  const dados = await response.json();
+  const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(dados.erro || "Erro ao fazer login");
+    throw new Error(data.error || "Erro ao fazer login");
   }
 
-  if (dados.utilizador) {
-    localStorage.setItem("studymatch_user",JSON.stringify(dados.utilizador));
-  }
-
-  if (dados.redirecionar) {
-    window.location.href = dados.redirecionar;
-  }
-
-  return dados;
+  return data;
 }

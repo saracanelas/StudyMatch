@@ -2,23 +2,32 @@ import { useState } from "react";
 import { loginAdmin } from "./Admin.js";
 import "./AdminLogin.css";
 
-export default function Login() {
+export default function Login({ onLogin }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Show authentication errors and prevent duplicate submissions.
+  const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleSubmit = async (e) => {
-  e.preventDefault();
+    e.preventDefault();
+    setError("");
+    setIsSubmitting(true);
 
-  try {
-    const dados = await loginAdmin(email, password);
+    try {
+      // loginAdmin calls the backend authentication endpoint.
+      await loginAdmin(email, password);
 
-    if (dados.utilizador) {
       onLogin();
+    } catch (err) {
+      // Keep the form visible and show the backend error to the user.
+      setError(err.message);
+    } finally {
+      // Re-enable the button after the request finishes.
+      setIsSubmitting(false);
     }
-  } catch (err) {
-    console.error("Erro ao fazer login:", err.message);
-  }
-};
+  };
   return (
     <div className="login-page">
       {/* Background forms */}
@@ -76,7 +85,10 @@ export default function Login() {
           />
         </label>
 
-        <button type="submit" className="btn-login">Login</button>
+        {error && <p role="alert">{error}</p>}
+        <button type="submit" className="btn-login" disabled={isSubmitting}>
+          {isSubmitting ? "A entrar..." : "Login"}
+        </button>
         
       </form>
     </div>
