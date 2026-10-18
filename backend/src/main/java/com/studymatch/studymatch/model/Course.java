@@ -1,6 +1,8 @@
 package com.studymatch.studymatch.model;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,9 +15,13 @@ public class Course {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long idCourse;
 
+    @NotBlank
+    @Size(max = 12)
     @Column(nullable = false, unique = true, length = 12)
     private String codeCourse;
 
+    @NotBlank
+    @Size(max = 50)
     @Column(nullable = false, length = 50)
     private String nameCourse;
 
