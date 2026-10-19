@@ -1,5 +1,6 @@
 package com.studymatch.studymatch.model;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Validation;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
@@ -60,6 +61,12 @@ class CourseTest {
     }
 
     @Test
+    @DisplayName("New course starts without curricular units")
+    void startsWithoutUnits() {
+        assertTrue(new Course().getCurricularUnits().isEmpty());
+    }
+
+    @Test
     @DisplayName("addCurricularUnit updates both sides of the relation")
     void addKeepsBothSidesConsistent() {
         Course course = new Course(null, "LEI", "Computer Engineering");
@@ -67,6 +74,7 @@ class CourseTest {
 
         course.addCurricularUnit(unit);
 
+        assertTrue(course.getCurricularUnits().contains(unit));
         assertTrue(unit.getCourses().contains(course));
     }
 
@@ -79,7 +87,47 @@ class CourseTest {
 
         course.removeCurricularUnit(unit);
 
+        assertFalse(course.getCurricularUnits().contains(unit));
         assertFalse(unit.getCourses().contains(course));
+    }
+
+    @Test
+    @DisplayName("removeCurricularUnit with a unit that is not in the course does nothing")
+    void removeUnitNotInCourse() {
+        Course course = new Course(null, "LEI", "Computer Engineering");
+        CurricularUnit unit = new CurricularUnit(null, "SQ", "Software Quality");
+
+        assertDoesNotThrow(() -> course.removeCurricularUnit(unit));
+        assertTrue(course.getCurricularUnits().isEmpty());
+    }
+
+    @Test
+    @DisplayName("The same unit can belong to two courses")
+    void unitInTwoCourses() {
+        Course lei = new Course(null, "LEI", "Computer Engineering");
+        Course lge = new Course(null, "LGE", "Management");
+        CurricularUnit unit = new CurricularUnit(null, "MAT", "Mathematics");
+
+        lei.addCurricularUnit(unit);
+        lge.addCurricularUnit(unit);
+
+        assertEquals(2, unit.getCourses().size());
+        lei.removeCurricularUnit(unit);
+        assertEquals(1, unit.getCourses().size());
+        assertTrue(unit.getCourses().contains(lge));
+    }
+
+    @Test
+    @DisplayName("Serializing a course with units does not loop and hides the units' 'courses' field")
+    void jsonDoesNotLoop() throws Exception {
+        Course course = new Course(1L, "LEI", "Computer Engineering");
+        course.addCurricularUnit(new CurricularUnit(2L, "SQ", "Software Quality"));
+
+        String json = new ObjectMapper().writeValueAsString(course);
+
+        assertTrue(json.contains("\"curricularUnits\""));
+        assertTrue(json.contains("\"codeUnit\":\"SQ\""));
+        assertFalse(json.contains("\"courses\""));
     }
 
     @Test
