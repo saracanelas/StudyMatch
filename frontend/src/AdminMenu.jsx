@@ -14,7 +14,7 @@ export default function AdminMenu({ onLogout }) {
     return (
         <div className="flex min-h-screen bg-lavender text-ink">
             <aside className="sticky top-0 flex h-screen w-60 flex-col bg-purple p-4">
-                <h1 className="text-xl font-bold">StudyMatch</h1>
+                <h1 className="text-xl font-bold" style={{color:"black"}}>StudyMatch</h1>
                 <p className="mb-6 text-sm opacity-70">Painel de administração</p>
                 <nav className="flex flex-col gap-2">
                     {ADMIN_MENU_ITEMS.map((item) => (
@@ -32,7 +32,7 @@ export default function AdminMenu({ onLogout }) {
 
                 <button
                     onClick={onLogout}
-                    className="mt-auto w-full rounded-lg bg-white px-3 py-2 text-left font-medium hover:bg-pink"
+                    className="mt-auto w-full rounded-lg bg-pink px-3 py-2 text-left font-medium hover:bg-lilac"
                 >
                     Terminar sessão
                 </button>
