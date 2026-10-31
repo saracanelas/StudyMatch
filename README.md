@@ -39,9 +39,9 @@ Admin currently at the database, a user Admin is created with the following
 credentials.
 
 ```text
-ADMIN_NAME=Administrator
-ADMIN_EMAIL=admin@example.com
-ADMIN_PASSWORD=change-this-password
+ADMIN_NAME=Administrador
+ADMIN_EMAIL=admin@studymatch.pt
+ADMIN_PASSWORD=Passwordteste123
 ```
 
 
