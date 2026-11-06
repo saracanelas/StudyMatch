@@ -1,5 +1,7 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.CurricularUnitRequest;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.model.CurricularUnit;
 import com.studymatch.studymatch.repository.CurricularUnitRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,21 +34,23 @@ class CurricularUnitServiceTest {
     }
 
     @Test
-    @DisplayName("getAllCurricularUnits returns what the repository returns")
+    @DisplayName("getAllCurricularUnits returns the repository content as responses")
     void getAll() {
-        List<CurricularUnit> units = List.of(unit(1L, "SQ", "Software Quality"), unit(2L, "BD", "Databases"));
-        when(repository.findAll()).thenReturn(units);
+        when(repository.findAll()).thenReturn(List.of(unit(1L, "SQ", "Software Quality"), unit(2L, "BD", "Databases")));
 
-        assertSame(units, service.getAllCurricularUnits());
+        assertEquals(List.of(
+                        new CurricularUnitResponse(1L, "SQ", "Software Quality"),
+                        new CurricularUnitResponse(2L, "BD", "Databases")),
+                service.getAllCurricularUnits());
     }
 
     @Test
-    @DisplayName("createCurricularUnit saves a new unit and ignores any id sent by the client")
+    @DisplayName("createCurricularUnit saves a new unit without an id, leaving it to the database")
     void createSavesWithoutClientId() {
         when(repository.findByCodeUnit("SQ")).thenReturn(null);
         when(repository.save(any(CurricularUnit.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.createCurricularUnit(unit(77L, "SQ", "Software Quality"));
+        service.createCurricularUnit(new CurricularUnitRequest("SQ", "Software Quality"));
 
         ArgumentCaptor<CurricularUnit> captor = ArgumentCaptor.forClass(CurricularUnit.class);
         verify(repository).save(captor.capture());
@@ -61,7 +65,7 @@ class CurricularUnitServiceTest {
         when(repository.findByCodeUnit("SQ")).thenReturn(unit(1L, "SQ", "Existing"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.createCurricularUnit(unit(null, "SQ", "New")));
+                () -> service.createCurricularUnit(new CurricularUnitRequest("SQ", "New")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         assertTrue(ex.getReason().contains("SQ"));
@@ -74,7 +78,7 @@ class CurricularUnitServiceTest {
         when(repository.findById(9L)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.updateCurricularUnit(9L, unit(null, "NEW", "New")));
+                () -> service.updateCurricularUnit(9L, new CurricularUnitRequest("NEW", "New")));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         assertTrue(ex.getReason().contains("9"));
@@ -89,7 +93,7 @@ class CurricularUnitServiceTest {
         when(repository.findByCodeUnit("TAKEN")).thenReturn(unit(2L, "TAKEN", "Other"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.updateCurricularUnit(1L, unit(null, "TAKEN", "New name")));
+                () -> service.updateCurricularUnit(1L, new CurricularUnitRequest("TAKEN", "New name")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         assertEquals("OLD", target.getCodeUnit());
@@ -103,11 +107,11 @@ class CurricularUnitServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(target));
         when(repository.findByCodeUnit("SQ")).thenReturn(target);
 
-        CurricularUnit result = service.updateCurricularUnit(1L, unit(null, "SQ", "New name"));
+        CurricularUnitResponse result = service.updateCurricularUnit(1L, new CurricularUnitRequest("SQ", "New name"));
 
-        assertSame(target, result);
-        assertEquals("SQ", result.getCodeUnit());
-        assertEquals("New name", result.getNameUnit());
+        assertEquals(new CurricularUnitResponse(1L, "SQ", "New name"), result);
+        assertEquals("SQ", target.getCodeUnit());
+        assertEquals("New name", target.getNameUnit());
     }
 
     @Test
@@ -117,9 +121,10 @@ class CurricularUnitServiceTest {
         when(repository.findById(1L)).thenReturn(Optional.of(target));
         when(repository.findByCodeUnit("NEW")).thenReturn(null);
 
-        CurricularUnit result = service.updateCurricularUnit(1L, unit(null, "NEW", "New name"));
+        CurricularUnitResponse result = service.updateCurricularUnit(1L, new CurricularUnitRequest("NEW", "New name"));
 
-        assertEquals("NEW", result.getCodeUnit());
-        assertEquals("New name", result.getNameUnit());
+        assertEquals(new CurricularUnitResponse(1L, "NEW", "New name"), result);
+        assertEquals("NEW", target.getCodeUnit());
+        assertEquals("New name", target.getNameUnit());
     }
 }

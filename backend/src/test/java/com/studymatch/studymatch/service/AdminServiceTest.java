@@ -1,5 +1,7 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.AdminRequest;
+import com.studymatch.studymatch.dto.AdminResponse;
 import com.studymatch.studymatch.model.Admin;
 import com.studymatch.studymatch.repository.AdminRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,12 +31,12 @@ class AdminServiceTest {
         service = new AdminService(repository);
     }
 
-    private Admin newAdmin(String email) {
-        Admin admin = new Admin();
-        admin.setNameAdmin("Maria");
-        admin.setEmailAdmin(email);
-        admin.setPasswordAdmin("plain-password");
-        return admin;
+    private AdminRequest newRequest(String email) {
+        return new AdminRequest("Maria", email, "plain-password");
+    }
+
+    private Admin storedAdmin(Long id, String email) {
+        return new Admin(id, "Maria", email, "stored-hash");
     }
 
     @Test
@@ -43,23 +45,23 @@ class AdminServiceTest {
         when(repository.findByEmailAdmin("maria@studymatch.pt")).thenReturn(null);
         when(repository.save(any(Admin.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        Admin saved = service.createAdmin(newAdmin("maria@studymatch.pt"));
+        AdminResponse saved = service.createAdmin(newRequest("maria@studymatch.pt"));
 
         ArgumentCaptor<Admin> captor = ArgumentCaptor.forClass(Admin.class);
         verify(repository).save(captor.capture());
         String stored = captor.getValue().getPasswordAdmin();
         assertNotEquals("plain-password", stored);
         assertTrue(new BCryptPasswordEncoder().matches("plain-password", stored));
-        assertEquals("maria@studymatch.pt", saved.getEmailAdmin());
+        assertEquals("maria@studymatch.pt", saved.emailAdmin());
     }
 
     @Test
     @DisplayName("Creating an admin with an existing email returns 409 and does not save")
     void duplicateEmailThrowsConflict() {
-        when(repository.findByEmailAdmin("maria@studymatch.pt")).thenReturn(newAdmin("maria@studymatch.pt"));
+        when(repository.findByEmailAdmin("maria@studymatch.pt")).thenReturn(storedAdmin(1L, "maria@studymatch.pt"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.createAdmin(newAdmin("maria@studymatch.pt")));
+                () -> service.createAdmin(newRequest("maria@studymatch.pt")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         verify(repository, never()).save(any());
@@ -72,19 +74,21 @@ class AdminServiceTest {
         when(repository.save(any(Admin.class))).thenThrow(new DataIntegrityViolationException("duplicate"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.createAdmin(newAdmin("maria@studymatch.pt")));
+                () -> service.createAdmin(newRequest("maria@studymatch.pt")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
     }
 
     @Test
-    @DisplayName("getAllAdmins returns what the repository returns")
+    @DisplayName("getAllAdmins returns the repository content as responses")
     void getAllAdminsReturnsRepositoryContent() {
-        List<Admin> admins = List.of(newAdmin("a@studymatch.pt"), newAdmin("b@studymatch.pt"));
-        when(repository.findAll()).thenReturn(admins);
+        when(repository.findAll()).thenReturn(List.of(
+                storedAdmin(1L, "a@studymatch.pt"), storedAdmin(2L, "b@studymatch.pt")));
 
-        assertEquals(2, service.getAllAdmins().size());
-        assertSame(admins, service.getAllAdmins());
+        assertEquals(List.of(
+                        new AdminResponse(1L, "Maria", "a@studymatch.pt"),
+                        new AdminResponse(2L, "Maria", "b@studymatch.pt")),
+                service.getAllAdmins());
     }
 
     @Test

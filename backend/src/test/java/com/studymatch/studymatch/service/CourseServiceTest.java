@@ -1,5 +1,8 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.CourseRequest;
+import com.studymatch.studymatch.dto.CourseResponse;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.model.Course;
 import com.studymatch.studymatch.model.CurricularUnit;
 import com.studymatch.studymatch.repository.CourseRepository;
@@ -42,21 +45,33 @@ class CourseServiceTest {
     // ---- getAllCourses / getCourseById ----
 
     @Test
-    @DisplayName("getAllCourses returns what the repository returns")
+    @DisplayName("getAllCourses returns the repository content as responses")
     void getAllCourses() {
-        List<Course> courses = List.of(course(1L, "LEI", "A"), course(2L, "LGE", "B"));
-        when(courseRepository.findAll()).thenReturn(courses);
+        when(courseRepository.findAll()).thenReturn(List.of(course(1L, "LEI", "A"), course(2L, "LGE", "B")));
 
-        assertSame(courses, service.getAllCourses());
+        assertEquals(List.of(
+                        new CourseResponse(1L, "LEI", "A", List.of()),
+                        new CourseResponse(2L, "LGE", "B", List.of())),
+                service.getAllCourses());
     }
 
     @Test
     @DisplayName("getCourseById returns the course when it exists")
     void getCourseByIdFound() {
+        when(courseRepository.findById(1L)).thenReturn(Optional.of(course(1L, "LEI", "A")));
+
+        assertEquals(new CourseResponse(1L, "LEI", "A", List.of()), service.getCourseById(1L));
+    }
+
+    @Test
+    @DisplayName("getCourseById includes the curricular units of the course in the response")
+    void getCourseByIdMapsUnits() {
         Course c = course(1L, "LEI", "A");
+        c.addCurricularUnit(unit(5L, "SQ"));
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
 
-        assertSame(c, service.getCourseById(1L));
+        assertEquals(List.of(new CurricularUnitResponse(5L, "SQ", "Unit SQ")),
+                service.getCourseById(1L).curricularUnits());
     }
 
     @Test
@@ -73,12 +88,12 @@ class CourseServiceTest {
     // ---- createCourse ----
 
     @Test
-    @DisplayName("createCourse saves a new course and ignores any id sent by the client")
+    @DisplayName("createCourse saves a new course without an id, leaving it to the database")
     void createCourseSavesWithoutClientId() {
         when(courseRepository.findByCodeCourse("LEI")).thenReturn(null);
         when(courseRepository.save(any(Course.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        service.createCourse(course(55L, "LEI", "Computer Engineering"));
+        service.createCourse(new CourseRequest("LEI", "Computer Engineering"));
 
         ArgumentCaptor<Course> captor = ArgumentCaptor.forClass(Course.class);
         verify(courseRepository).save(captor.capture());
@@ -93,7 +108,7 @@ class CourseServiceTest {
         when(courseRepository.findByCodeCourse("LEI")).thenReturn(course(1L, "LEI", "Existing"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.createCourse(course(null, "LEI", "New")));
+                () -> service.createCourse(new CourseRequest("LEI", "New")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         assertTrue(ex.getReason().contains("LEI"));
@@ -108,7 +123,7 @@ class CourseServiceTest {
         when(courseRepository.findById(9L)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.updateCourse(9L, course(null, "NEW", "New")));
+                () -> service.updateCourse(9L, new CourseRequest("NEW", "New")));
 
         assertEquals(HttpStatus.NOT_FOUND, ex.getStatusCode());
         verify(courseRepository, never()).findByCodeCourse(any());
@@ -122,7 +137,7 @@ class CourseServiceTest {
         when(courseRepository.findByCodeCourse("TAKEN")).thenReturn(course(2L, "TAKEN", "Other"));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> service.updateCourse(1L, course(null, "TAKEN", "New name")));
+                () -> service.updateCourse(1L, new CourseRequest("TAKEN", "New name")));
 
         assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
         assertEquals("OLD", target.getCodeCourse());
@@ -136,11 +151,11 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(target));
         when(courseRepository.findByCodeCourse("LEI")).thenReturn(target);
 
-        Course result = service.updateCourse(1L, course(null, "LEI", "New name"));
+        CourseResponse result = service.updateCourse(1L, new CourseRequest("LEI", "New name"));
 
-        assertSame(target, result);
-        assertEquals("LEI", result.getCodeCourse());
-        assertEquals("New name", result.getNameCourse());
+        assertEquals(new CourseResponse(1L, "LEI", "New name", List.of()), result);
+        assertEquals("LEI", target.getCodeCourse());
+        assertEquals("New name", target.getNameCourse());
     }
 
     @Test
@@ -150,10 +165,11 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(target));
         when(courseRepository.findByCodeCourse("NEW")).thenReturn(null);
 
-        Course result = service.updateCourse(1L, course(null, "NEW", "New name"));
+        CourseResponse result = service.updateCourse(1L, new CourseRequest("NEW", "New name"));
 
-        assertEquals("NEW", result.getCodeCourse());
-        assertEquals("New name", result.getNameCourse());
+        assertEquals(new CourseResponse(1L, "NEW", "New name", List.of()), result);
+        assertEquals("NEW", target.getCodeCourse());
+        assertEquals("New name", target.getNameCourse());
     }
 
     // ---- setCourseUnits ----
@@ -195,9 +211,9 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
         when(unitRepository.findAllById(any())).thenReturn(List.of(u1, u2));
 
-        Course result = service.setCourseUnits(1L, List.of(1L, 2L));
+        CourseResponse result = service.setCourseUnits(1L, List.of(1L, 2L));
 
-        assertEquals(2, result.getCurricularUnits().size());
+        assertEquals(2, result.curricularUnits().size());
         assertTrue(u1.getCourses().contains(c));
         assertTrue(u2.getCourses().contains(c));
     }
@@ -213,9 +229,10 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
         when(unitRepository.findAllById(any())).thenReturn(List.of(u2));
 
-        Course result = service.setCourseUnits(1L, List.of(2L));
+        CourseResponse result = service.setCourseUnits(1L, List.of(2L));
 
-        assertEquals(List.of(u2), result.getCurricularUnits());
+        assertEquals(List.of(u2), c.getCurricularUnits());
+        assertEquals(List.of(CurricularUnitResponse.from(u2)), result.curricularUnits());
         assertFalse(u1.getCourses().contains(c));
         assertTrue(u2.getCourses().contains(c));
     }
@@ -230,11 +247,11 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
         when(unitRepository.findAllById(any())).thenReturn(List.of(u1, u3));
 
-        Course result = service.setCourseUnits(1L, List.of(1L, 3L));
+        CourseResponse result = service.setCourseUnits(1L, List.of(1L, 3L));
 
-        assertEquals(2, result.getCurricularUnits().size());
-        assertTrue(result.getCurricularUnits().contains(u1));
-        assertTrue(result.getCurricularUnits().contains(u3));
+        assertEquals(2, result.curricularUnits().size());
+        assertTrue(result.curricularUnits().contains(CurricularUnitResponse.from(u1)));
+        assertTrue(result.curricularUnits().contains(CurricularUnitResponse.from(u3)));
         assertEquals(1, u1.getCourses().size());
     }
 
@@ -247,9 +264,9 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
         when(unitRepository.findAllById(any())).thenReturn(List.of());
 
-        Course result = service.setCourseUnits(1L, List.of());
+        CourseResponse result = service.setCourseUnits(1L, List.of());
 
-        assertTrue(result.getCurricularUnits().isEmpty());
+        assertTrue(result.curricularUnits().isEmpty());
         assertTrue(u1.getCourses().isEmpty());
     }
 
@@ -261,8 +278,8 @@ class CourseServiceTest {
         when(courseRepository.findById(1L)).thenReturn(Optional.of(c));
         when(unitRepository.findAllById(any())).thenReturn(List.of(u1));
 
-        Course result = service.setCourseUnits(1L, List.of(1L, 1L));
+        CourseResponse result = service.setCourseUnits(1L, List.of(1L, 1L));
 
-        assertEquals(1, result.getCurricularUnits().size());
+        assertEquals(1, result.curricularUnits().size());
     }
 }
