@@ -1,5 +1,7 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.AdminRequest;
+import com.studymatch.studymatch.dto.AdminResponse;
 import com.studymatch.studymatch.model.Admin;
 import com.studymatch.studymatch.repository.AdminRepository;
 
@@ -22,17 +24,18 @@ public class AdminService {
         this.adminRepository = adminRepository;
     }
 
-    public Admin createAdmin(Admin admin) {
-        if (adminRepository.findByEmailAdmin(admin.getEmailAdmin()) != null) {
+    public AdminResponse createAdmin(AdminRequest request) {
+        if (adminRepository.findByEmailAdmin(request.emailAdmin()) != null) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
                     "An administrator with this email already exists."
             );
         }
-        admin.setPasswordAdmin(passwordEncoder.encode(admin.getPasswordAdmin()));
+        Admin admin = new Admin(null, request.nameAdmin(), request.emailAdmin(),
+                passwordEncoder.encode(request.passwordAdmin()));
 
         try {
-            return adminRepository.save(admin);
+            return AdminResponse.from(adminRepository.save(admin));
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -41,7 +44,7 @@ public class AdminService {
         }
     }
 
-    public List<Admin> getAllAdmins() {
-        return adminRepository.findAll();
+    public List<AdminResponse> getAllAdmins() {
+        return adminRepository.findAll().stream().map(AdminResponse::from).toList();
     }
 }

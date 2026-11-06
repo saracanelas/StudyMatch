@@ -1,6 +1,7 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.CurricularUnit;
+import com.studymatch.studymatch.dto.CurricularUnitRequest;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.service.CurricularUnitService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -41,8 +42,8 @@ class CurricularUnitControllerTest {
     @DisplayName("GET /api/units returns the list of units without a 'courses' field")
     void getAllUnits() throws Exception {
         when(unitService.getAllCurricularUnits()).thenReturn(List.of(
-                new CurricularUnit(1L, "SQ", "Software Quality"),
-                new CurricularUnit(2L, "BD", "Databases")));
+                new CurricularUnitResponse(1L, "SQ", "Software Quality"),
+                new CurricularUnitResponse(2L, "BD", "Databases")));
 
         mockMvc.perform(get("/api/units"))
                 .andExpect(status().isOk())
@@ -55,8 +56,8 @@ class CurricularUnitControllerTest {
     @Test
     @DisplayName("POST /api/units returns 201 with the created unit")
     void createUnit() throws Exception {
-        when(unitService.createCurricularUnit(any(CurricularUnit.class)))
-                .thenReturn(new CurricularUnit(1L, "SQ", "Software Quality"));
+        when(unitService.createCurricularUnit(any(CurricularUnitRequest.class)))
+                .thenReturn(new CurricularUnitResponse(1L, "SQ", "Software Quality"));
 
         mockMvc.perform(post("/api/units").contentType(MediaType.APPLICATION_JSON).content(body("SQ", "Software Quality")))
                 .andExpect(status().isCreated())
@@ -67,7 +68,7 @@ class CurricularUnitControllerTest {
     @Test
     @DisplayName("POST /api/units returns 409 with { error } when the code is taken")
     void createUnitConflict() throws Exception {
-        when(unitService.createCurricularUnit(any(CurricularUnit.class)))
+        when(unitService.createCurricularUnit(any(CurricularUnitRequest.class)))
                 .thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
 
         mockMvc.perform(post("/api/units").contentType(MediaType.APPLICATION_JSON).content(body("SQ", "Software Quality")))
@@ -114,8 +115,8 @@ class CurricularUnitControllerTest {
     @Test
     @DisplayName("PUT /api/units/{id} returns 200 with the updated unit")
     void updateUnit() throws Exception {
-        when(unitService.updateCurricularUnit(eq(1L), any(CurricularUnit.class)))
-                .thenReturn(new CurricularUnit(1L, "NEW", "New name"));
+        when(unitService.updateCurricularUnit(eq(1L), any(CurricularUnitRequest.class)))
+                .thenReturn(new CurricularUnitResponse(1L, "NEW", "New name"));
 
         mockMvc.perform(put("/api/units/1").contentType(MediaType.APPLICATION_JSON).content(body("NEW", "New name")))
                 .andExpect(status().isOk())
@@ -126,7 +127,7 @@ class CurricularUnitControllerTest {
     @Test
     @DisplayName("PUT /api/units/{id} returns 404 when the unit does not exist")
     void updateUnitNotFound() throws Exception {
-        when(unitService.updateCurricularUnit(eq(9L), any(CurricularUnit.class)))
+        when(unitService.updateCurricularUnit(eq(9L), any(CurricularUnitRequest.class)))
                 .thenThrow(error(HttpStatus.NOT_FOUND, "Unit 9 not found"));
 
         mockMvc.perform(put("/api/units/9").contentType(MediaType.APPLICATION_JSON).content(body("NEW", "New name")))
@@ -137,7 +138,7 @@ class CurricularUnitControllerTest {
     @Test
     @DisplayName("PUT /api/units/{id} returns 409 when the code belongs to another unit")
     void updateUnitConflict() throws Exception {
-        when(unitService.updateCurricularUnit(eq(1L), any(CurricularUnit.class)))
+        when(unitService.updateCurricularUnit(eq(1L), any(CurricularUnitRequest.class)))
                 .thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
 
         mockMvc.perform(put("/api/units/1").contentType(MediaType.APPLICATION_JSON).content(body("TAKEN", "Name")))

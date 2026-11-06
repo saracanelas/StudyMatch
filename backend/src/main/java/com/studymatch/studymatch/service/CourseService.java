@@ -1,5 +1,7 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.CourseRequest;
+import com.studymatch.studymatch.dto.CourseResponse;
 import com.studymatch.studymatch.model.Course;
 import com.studymatch.studymatch.model.CurricularUnit;
 import com.studymatch.studymatch.repository.CourseRepository;
@@ -32,45 +34,45 @@ public class CourseService {
      * Returns every course in the database.
      */
     @Transactional(readOnly = true)
-    public List<Course> getAllCourses() {
-        return courseRepository.findAll();
+    public List<CourseResponse> getAllCourses() {
+        return courseRepository.findAll().stream().map(CourseResponse::from).toList();
     }
 
     /**
      * Returns the course with the given id, or 404 if it does not exist.
      */
     @Transactional(readOnly = true)
-    public Course getCourseById(Long id) {
-        return findCourseOrThrow(id);
+    public CourseResponse getCourseById(Long id) {
+        return CourseResponse.from(findCourseOrThrow(id));
     }
 
     /**
      * Saves a new course, refusing it if another course already uses the same code.
      */
     @Transactional
-    public Course createCourse(Course newCourse) {
-        if (courseRepository.findByCodeCourse(newCourse.getCodeCourse()) != null) {
+    public CourseResponse createCourse(CourseRequest newCourse) {
+        if (courseRepository.findByCodeCourse(newCourse.codeCourse()) != null) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Já existe um curso com o código " + newCourse.getCodeCourse());
+                    "Já existe um curso com o código " + newCourse.codeCourse());
         }
-        Course course = new Course(null, newCourse.getCodeCourse(), newCourse.getNameCourse());
-        return courseRepository.save(course);
+        Course course = new Course(null, newCourse.codeCourse(), newCourse.nameCourse());
+        return CourseResponse.from(courseRepository.save(course));
     }
 
     /**
      * Changes the code and name of an existing course, keeping codes unique.
      */
     @Transactional
-    public Course updateCourse(Long id, Course updatedCourse) {
+    public CourseResponse updateCourse(Long id, CourseRequest updatedCourse) {
         Course course = findCourseOrThrow(id);
-        Course courseWithSameCode = courseRepository.findByCodeCourse(updatedCourse.getCodeCourse());
+        Course courseWithSameCode = courseRepository.findByCodeCourse(updatedCourse.codeCourse());
         if (courseWithSameCode != null && !courseWithSameCode.getIdCourse().equals(id)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "Já existe um curso com o código " + updatedCourse.getCodeCourse());
+                    "Já existe um curso com o código " + updatedCourse.codeCourse());
         }
-        course.setCodeCourse(updatedCourse.getCodeCourse());
-        course.setNameCourse(updatedCourse.getNameCourse());
-        return course; // saved automatically when the transaction ends
+        course.setCodeCourse(updatedCourse.codeCourse());
+        course.setNameCourse(updatedCourse.nameCourse());
+        return CourseResponse.from(course); // saved automatically when the transaction ends
     }
 
     /**
@@ -78,7 +80,7 @@ public class CourseService {
      * adding the new ones and removing the ones that are no longer wanted.
      */
     @Transactional
-    public Course setCourseUnits(Long id, List<Long> unitIds) {
+    public CourseResponse setCourseUnits(Long id, List<Long> unitIds) {
         Course course = findCourseOrThrow(id);
 
         Set<Long> wantedUnitIds = new HashSet<>(unitIds);
@@ -99,7 +101,7 @@ public class CourseService {
                 .filter(unit -> !currentUnitIds.contains(unit.getIdUnit()))
                 .forEach(course::addCurricularUnit);
 
-        return course;
+        return CourseResponse.from(course);
     }
 
     /**
