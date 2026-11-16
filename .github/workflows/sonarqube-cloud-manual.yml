@@ -26,13 +26,11 @@ jobs:
 
       - name: Build, test and run SonarQube analysis
         working-directory: backend
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
           ./mvnw -B clean verify
           org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar
           -Dsonar.host.url=https://sonarcloud.io
           -Dsonar.organization=saracanelas
           -Dsonar.projectKey=saracanelas_StudyMatch
-          -Dsonar.token=$SONAR_TOKEN
+          -Dsonar.token=${{ secrets.SONAR_TOKEN }}
           -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
