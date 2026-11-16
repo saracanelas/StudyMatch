@@ -19,9 +19,9 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Test backend
+      - name: Test backend with coverage
         working-directory: backend
-        run: ./mvnw test
+        run: ./mvnw clean verify
 
   frontend:
     runs-on: ubuntu-latest
