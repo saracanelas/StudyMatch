@@ -1,0 +1,24 @@
+name: sonarqube-cloud-manual.yml
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+jobs:
+  quality-analysis:
+  runs-on: ubuntu-latest
+  steps:
+    - name: Checkout repository
+  uses: actions/checkout@v7
+  with:
+  fetch-depth: 0
+    - name: Set up Java 17 and Maven cache
+  uses: actions/setup-java@v6
+  with:
+  distribution: temurin
+  java-version: '17'
+  cache: maven
+    - name: Build, test and run SonarQube analysis
+  env:
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  run: mvn -B clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar
