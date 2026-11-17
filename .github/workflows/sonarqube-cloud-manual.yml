@@ -1,36 +1,81 @@
-
-name: SonarQube Cloud
+name: SonarQube
 
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
   workflow_dispatch:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
-  quality-analysis:
+  build:
+    name: Build and analyze
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
 
-      - name: Set up Java 21 and Maven cache
+      - name: Check SONAR_TOKEN secret
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::The SONAR_TOKEN secret is missing or empty. Create a token in SonarCloud (My Account > Security) and add it under Settings > Secrets and variables > Actions > Repository secrets as SONAR_TOKEN."
+            exit 1
+          fi
+
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
           cache: maven
 
-      - name: Build, test and run SonarQube analysis
+      # The Maven Wrapper downloads the Maven distribution itself; setup-java's
+      # "cache: maven" only caches ~/.m2/repository, so cache the wrapper dists too.
+      - name: Cache Maven Wrapper distribution
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/wrapper
+          key: ${{ runner.os }}-maven-wrapper-${{ hashFiles('backend/.mvn/wrapper/maven-wrapper.properties') }}
+
+      # Download Maven up front with retries so a transient network error from
+      # Maven Central doesn't fail the whole analysis.
+      - name: Download Maven via wrapper
         working-directory: backend
+        run: |
+          for attempt in 1 2 3; do
+            ./mvnw -B --version && exit 0
+            echo "Maven download failed (attempt $attempt), retrying in 10s..."
+            sleep 10
+          done
+          exit 1
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      # Build, test, generate JaCoCo coverage and run the analysis in one go.
+      # The Maven scanner picks up sources, compiled classes (sonar.java.binaries),
+      # tests and the JaCoCo report automatically, which the generic CLI scanner does not.
+      - name: Build, test and analyze
+        working-directory: backend
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: >
           ./mvnw -B clean verify
-          org.sonarsource.scanner.maven:sonar-maven-plugin:5.8.0.7211:sonar
+          org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
           -Dsonar.host.url=https://sonarcloud.io
-          -Dsonar.organization=saracanelas
+          -Dsonar.organization=studymatch
           -Dsonar.projectKey=saracanelas_StudyMatch
-          -Dsonar.token=${{ secrets.SONAR_TOKEN }}
-          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
