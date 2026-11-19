@@ -90,3 +90,26 @@ export async function updateCurricularUnit(id, unit) {
     });
     return curricularUnitFromApi(updatedUnit);
 }
+
+// ---------- Group configuration ----------
+/** Returns { numberOfStudents, roles } of a curricular unit, or null if it has no configuration yet. */
+export async function getGroupConfiguration(unitId) {
+    const response = await fetch(`${BASE_URL}/units/${unitId}/group-configuration`);
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        throw new Error(`Erro ${response.status} ao carregar a configuração de grupos`);
+    }
+    const configuration = await response.json();
+    return { numberOfStudents: configuration.numberOfStudents, roles: configuration.roles };
+}
+
+/** Creates (isNew = true) or updates the group configuration of a curricular unit and returns it. */
+export async function saveGroupConfiguration(unitId, configuration, isNew) {
+    const savedConfiguration = await sendRequest(`/units/${unitId}/group-configuration`, {
+        method: isNew ? "POST" : "PUT",
+        body: JSON.stringify({ numberOfStudents: configuration.numberOfStudents, roles: configuration.roles }),
+    });
+    return { numberOfStudents: savedConfiguration.numberOfStudents, roles: savedConfiguration.roles };
+}
