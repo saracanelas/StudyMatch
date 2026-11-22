@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Turns errors of the group controllers into { "error": message } responses the frontend can show.
  */
-@RestControllerAdvice(assignableTypes = GroupConfigurationController.class)
+@RestControllerAdvice(assignableTypes = {GroupConfigurationController.class, RolePreferenceController.class})
 public class ApiErrorHandler {
 
     /**

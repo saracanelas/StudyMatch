@@ -113,3 +113,36 @@ export async function saveGroupConfiguration(unitId, configuration, isNew) {
     });
     return { numberOfStudents: savedConfiguration.numberOfStudents, roles: savedConfiguration.roles };
 }
+
+// ---------- Role preferences ----------
+/** Returns the roles a student can rank in the assignment of a curricular unit. */
+export async function getAvailableRoles(unitId) {
+    return sendRequest(`/units/${unitId}/roles`);
+}
+
+/** Returns the roles a student already ranked for the unit, or null if they have not submitted yet. */
+export async function getRolePreference(unitId, studentNumber) {
+    const response = await fetch(`${BASE_URL}/units/${unitId}/role-preferences/${encodeURIComponent(studentNumber)}`);
+    if (response.status === 404) {
+        return null;
+    }
+    if (!response.ok) {
+        let errorMessage = `Erro ${response.status} ao carregar as preferências`;
+        try {
+            errorMessage = (await response.json()).error || errorMessage;
+        } catch {
+            // no JSON body; keep the generic message
+        }
+        throw new Error(errorMessage);
+    }
+    return (await response.json()).rankedRoles;
+}
+
+/** Submits or updates the ranking of roles of a student and returns the saved ranking. */
+export async function submitRolePreference(unitId, studentNumber, rankedRoles) {
+    const saved = await sendRequest(`/units/${unitId}/role-preferences/${encodeURIComponent(studentNumber)}`, {
+        method: "PUT",
+        body: JSON.stringify({ rankedRoles }),
+    });
+    return saved.rankedRoles;
+}
