@@ -1,10 +1,16 @@
 import { useState } from "react";
 import CoursesPage from "./pages/CoursesPage";
 import CurricularUnitsPage from "./pages/CurricularUnitsPage";
+import GroupConfigurationPage from "./pages/GroupConfigurationPage";
+import RolePreferencePage from "./pages/RolePreferencePage";
+import UnitStudentsPage from "./pages/UnitStudentsPage";
 
 const ADMIN_MENU_ITEMS = [
     { page: "courses", label: "Cursos" },
     { page: "curricularUnits", label: "Unidades Curriculares" },
+    { page: "unitStudents", label: "Alunos das UCs" }, // temporary: until students have accounts
+    { page: "groupConfiguration", label: "Configuração de Grupos" },
+    { page: "rolePreferences", label: "Preferências de Roles" }, // temporary: will move to the student area
 ];
 
 /** Admin area with the side menu; the logout button calls `onLogout`. */
@@ -39,7 +45,11 @@ export default function AdminMenu({ onLogout }) {
             </aside>
 
             <main className="flex-1 p-8">
-                {currentPage === "courses" ? <CoursesPage /> : <CurricularUnitsPage />}
+                {currentPage === "courses" && <CoursesPage />}
+                {currentPage === "curricularUnits" && <CurricularUnitsPage />}
+                {currentPage === "unitStudents" && <UnitStudentsPage />}
+                {currentPage === "groupConfiguration" && <GroupConfigurationPage />}
+                {currentPage === "rolePreferences" && <RolePreferencePage />}
             </main>
         </div>
     );

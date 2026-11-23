@@ -1,6 +1,7 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.Admin;
+import com.studymatch.studymatch.dto.AdminRequest;
+import com.studymatch.studymatch.dto.AdminResponse;
 import com.studymatch.studymatch.service.AdminService;
 
 import jakarta.validation.Valid;
@@ -21,12 +22,12 @@ public class AdminController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Admin createAdmin(@Valid @RequestBody Admin admin) {
+    public AdminResponse createAdmin(@Valid @RequestBody AdminRequest admin) {
         return adminService.createAdmin(admin);
     }
 
     @GetMapping
-    public List<Admin> getAllAdmins() {
+    public List<AdminResponse> getAllAdmins() {
         return adminService.getAllAdmins();
     }
 }
