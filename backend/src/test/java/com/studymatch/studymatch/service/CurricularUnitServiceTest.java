@@ -21,12 +21,14 @@ import static org.mockito.Mockito.*;
 class CurricularUnitServiceTest {
 
     private CurricularUnitRepository repository;
+    private GradeAverageService gradeAverageService;
     private CurricularUnitService service;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(CurricularUnitRepository.class);
-        service = new CurricularUnitService(repository);
+        gradeAverageService = Mockito.mock(GradeAverageService.class);
+        service = new CurricularUnitService(repository, gradeAverageService);
     }
 
     private CurricularUnit unit(Long id, String code, String name) {
@@ -126,5 +128,28 @@ class CurricularUnitServiceTest {
         assertEquals(new CurricularUnitResponse(1L, "NEW", "New name"), result);
         assertEquals("NEW", target.getCodeUnit());
         assertEquals("New name", target.getNameUnit());
+    }
+
+    @Test
+    @DisplayName("createCurricularUnit keeps the ECTS sent, or uses the default when none is sent")
+    void createWithEcts() {
+        when(repository.save(any(CurricularUnit.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals(7, service.createCurricularUnit(new CurricularUnitRequest("SQ", "Software Quality", 7)).ects());
+        assertEquals(CurricularUnit.DEFAULT_ECTS, service.createCurricularUnit(new CurricularUnitRequest("BD", "Databases")).ects());
+    }
+
+    @Test
+    @DisplayName("updateCurricularUnit recalculates the averages only when the ECTS change")
+    void updateEctsRecalculatesAverages() {
+        CurricularUnit stored = unit(5L, "SQ", "Software Quality");
+        when(repository.findById(5L)).thenReturn(Optional.of(stored));
+
+        service.updateCurricularUnit(5L, new CurricularUnitRequest("SQ", "Software Quality", CurricularUnit.DEFAULT_ECTS));
+        service.updateCurricularUnit(5L, new CurricularUnitRequest("SQ", "Software Quality"));
+        verify(gradeAverageService, never()).recalculateForUnit(any());
+
+        assertEquals(4, service.updateCurricularUnit(5L, new CurricularUnitRequest("SQ", "Software Quality", 4)).ects());
+        verify(gradeAverageService).recalculateForUnit(5L);
     }
 }
