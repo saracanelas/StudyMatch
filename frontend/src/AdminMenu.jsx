@@ -1,46 +1,200 @@
-import { useState } from "react";
-import CoursesPage from "./pages/CoursesPage";
-import CurricularUnitsPage from "./pages/CurricularUnitsPage";
+import { useCallback, useEffect, useState } from "react";
+import { enrollStudent, getAllCourses, getAllCurricularUnits, getAllEnrollments, getAllStudents, setEnrollmentGrade, unenrollStudent } from "./api";
+import AdminLayout from "./components/AdminLayout";
+import Toast from "./components/Toast";
+import CatalogPage from "./pages/CatalogPage";
+import CourseFormPage from "./pages/CourseFormPage";
+import StudentFormPage from "./pages/StudentFormPage";
+import StudentsPage from "./pages/StudentsPage";
+import UnitFormPage from "./pages/UnitFormPage";
 
-const ADMIN_MENU_ITEMS = [
-    { page: "courses", label: "Cursos" },
-    { page: "curricularUnits", label: "Unidades Curriculares" },
-];
+/**
+ * Administrator area. Loads the catalogue (courses, units), the students and their enrollments,
+ * shows the overview pages inside the sidebar layout and opens the create / edit forms as full pages.
+ */
+export default function AdminMenu({ adminEmail, onLogout }) {
+    // Open page in the sidebar: "catalog" (Cursos e UCs) or "students"
+    const [section, setSection] = useState("catalog");
+    // Open form: null, or { type: "course" | "unit" | "student", id } (id is null when creating)
+    const [form, setForm] = useState(null);
 
-/** Admin area with the side menu; the logout button calls `onLogout`. */
-export default function AdminMenu({ onLogout }) {
-    const [currentPage, setCurrentPage] = useState("courses");
+    const [data, setData] = useState({ courses: [], units: [], students: [], enrollments: [] });
+    const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
+    const [lastUpdated, setLastUpdated] = useState(null);
+    // Changes after every enrollment change, so that the open UC panel reloads its students
+    const [refreshKey, setRefreshKey] = useState(0);
+
+    const [catalogTab, setCatalogTab] = useState("courses");
+    const [selectedCourseId, setSelectedCourseId] = useState(null);
+    const [selectedUnitId, setSelectedUnitId] = useState(null);
+    const [studentsTab, setStudentsTab] = useState("students");
+    const [selectedStudentId, setSelectedStudentId] = useState(null);
+    const [selectedGradesUnitId, setSelectedGradesUnitId] = useState(null);
+
+    const [toast, setToast] = useState(null);
+    const showToast = useCallback((type, text) => setToast({ type, text, id: Date.now() }), []);
+    const closeToast = useCallback(() => setToast(null), []);
+
+    /** Reads everything from the backend again. */
+    const reload = useCallback(
+        () =>
+            Promise.all([getAllCourses(), getAllCurricularUnits(), getAllStudents(), getAllEnrollments()])
+                .then(([courses, units, students, enrollments]) => {
+                    setData({ courses, units, students, enrollments });
+                    setLoadError("");
+                    setLastUpdated(new Date());
+                })
+                .catch((error) => setLoadError(`Não foi possível carregar os dados: ${error.message}`))
+                .finally(() => setIsLoading(false)),
+        []
+    );
+
+    useEffect(() => {
+        reload();
+    }, [reload]);
+
+    /** Closes the form, shows a success message and reloads the data. */
+    async function afterSave(message) {
+        setForm(null);
+        showToast("success", message);
+        await reload();
+    }
+
+    // ---------- Enrollments and grades ----------
+
+    /** Runs an enrollment change, then reloads; returns true on success. */
+    async function changeEnrollments(action, successMessage) {
+        try {
+            await action();
+            showToast("success", successMessage);
+            await reload();
+            setRefreshKey((key) => key + 1);
+            return true;
+        } catch (error) {
+            showToast("error", error.message);
+            return false;
+        }
+    }
+
+    const handleEnroll = (studentId, unitId) =>
+        changeEnrollments(() => enrollStudent(studentId, unitId), "Inscrição registada.");
+
+    const handleSetGrade = (enrollment, grade) =>
+        changeEnrollments(
+            () => setEnrollmentGrade(enrollment.id, grade),
+            grade === null ? "Nota removida." : "Nota guardada. A média do estudante foi atualizada."
+        );
+
+    const handleUnenroll = (enrollment) =>
+        changeEnrollments(() => unenrollStudent(enrollment.id), "Inscrição anulada.");
+
+    const handleLoadError = useCallback((error) => showToast("error", error.message), [showToast]);
+
+    // ---------- Forms (full pages, without the sidebar) ----------
+
+    const { courses, units, students, enrollments } = data;
+    let formPage = null;
+
+    if (form?.type === "course") {
+        formPage = (
+            <CourseFormPage
+                key={form.id ?? "new"}
+                course={courses.find((course) => course.id === form.id)}
+                units={units}
+                onCancel={() => setForm(null)}
+                onSaved={async ({ courseId }) => {
+                    setCatalogTab("courses");
+                    setSelectedCourseId(courseId);
+                    await afterSave(form.id ? "Curso atualizado." : "Curso criado.");
+                }}
+            />
+        );
+    } else if (form?.type === "unit") {
+        formPage = (
+            <UnitFormPage
+                key={form.id ?? "new"}
+                unit={units.find((unit) => unit.id === form.id)}
+                courses={courses}
+                onCancel={() => setForm(null)}
+                onSaved={async ({ unitId }) => {
+                    if (catalogTab === "courses") setCatalogTab("units");
+                    setSelectedUnitId(unitId);
+                    await afterSave(form.id ? "UC atualizada." : "UC criada.");
+                }}
+            />
+        );
+    } else if (form?.type === "student") {
+        formPage = (
+            <StudentFormPage
+                key={form.id ?? "new"}
+                student={students.find((student) => student.id === form.id)}
+                courses={courses}
+                onCancel={() => setForm(null)}
+                onSaved={async (saved, isEditing) => {
+                    setStudentsTab("students");
+                    setSelectedStudentId(saved.id);
+                    await afterSave(isEditing ? "Estudante atualizado." : "Estudante criado.");
+                }}
+            />
+        );
+    }
 
     return (
-        <div className="flex min-h-screen bg-lavender text-ink">
-            <aside className="sticky top-0 flex h-screen w-60 flex-col bg-purple p-4">
-                <h1 className="text-xl font-bold" style={{color:"black"}}>StudyMatch</h1>
-                <p className="mb-6 text-sm opacity-70">Painel de administração</p>
-                <nav className="flex flex-col gap-2">
-                    {ADMIN_MENU_ITEMS.map((item) => (
-                        <button
-                            key={item.page}
-                            onClick={() => setCurrentPage(item.page)}
-                            className={`rounded-lg px-3 py-2 text-left font-medium ${
-                                currentPage === item.page ? "bg-pink" : "hover:bg-blue"
-                            }`}
-                        >
-                            {item.label}
-                        </button>
-                    ))}
-                </nav>
-
-                <button
-                    onClick={onLogout}
-                    className="mt-auto w-full rounded-lg bg-pink px-3 py-2 text-left font-medium hover:bg-lilac"
+        <>
+            {formPage ?? (
+                <AdminLayout
+                    adminEmail={adminEmail}
+                    onLogout={onLogout}
+                    section={section}
+                    onNavigate={setSection}
+                    counts={{ students: students.length }}
                 >
-                    Terminar sessão
-                </button>
-            </aside>
-
-            <main className="flex-1 p-8">
-                {currentPage === "courses" ? <CoursesPage /> : <CurricularUnitsPage />}
-            </main>
-        </div>
+                    {section === "catalog" ? (
+                        <CatalogPage
+                            courses={courses}
+                            units={units}
+                            isLoading={isLoading}
+                            loadError={loadError}
+                            lastUpdated={lastUpdated}
+                            tab={catalogTab}
+                            onTabChange={setCatalogTab}
+                            selectedCourseId={selectedCourseId}
+                            onSelectCourse={setSelectedCourseId}
+                            selectedUnitId={selectedUnitId}
+                            onSelectUnit={setSelectedUnitId}
+                            onNewCourse={() => setForm({ type: "course", id: null })}
+                            onEditCourse={(id) => setForm({ type: "course", id })}
+                            onNewUnit={() => setForm({ type: "unit", id: null })}
+                            onEditUnit={(id) => setForm({ type: "unit", id })}
+                        />
+                    ) : (
+                        <StudentsPage
+                            students={students}
+                            courses={courses}
+                            units={units}
+                            enrollments={enrollments}
+                            isLoading={isLoading}
+                            loadError={loadError}
+                            lastUpdated={lastUpdated}
+                            refreshKey={refreshKey}
+                            tab={studentsTab}
+                            onTabChange={setStudentsTab}
+                            selectedStudentId={selectedStudentId}
+                            onSelectStudent={setSelectedStudentId}
+                            selectedUnitId={selectedGradesUnitId}
+                            onSelectUnit={setSelectedGradesUnitId}
+                            onNewStudent={() => setForm({ type: "student", id: null })}
+                            onEditStudent={(id) => setForm({ type: "student", id })}
+                            onEnroll={handleEnroll}
+                            onSetGrade={handleSetGrade}
+                            onUnenroll={handleUnenroll}
+                            onLoadError={handleLoadError}
+                        />
+                    )}
+                </AdminLayout>
+            )}
+            <Toast key={toast?.id} toast={toast} onClose={closeToast} />
+        </>
     );
 }
