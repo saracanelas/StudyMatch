@@ -86,8 +86,6 @@ public class StudentService {
         target.setEmailStudent(email);
         target.setBirthday(source.birthday());
         target.setEnrollmentYear(source.enrollmentYear());
-        String classStudent = source.classStudent();
-        target.setClassStudent(classStudent == null || classStudent.isBlank() ? null : classStudent.trim());
         target.setCourse(findCourse(source.idCourse()));
     }
 

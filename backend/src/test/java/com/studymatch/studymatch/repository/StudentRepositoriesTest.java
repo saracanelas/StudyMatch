@@ -35,7 +35,6 @@ class StudentRepositoriesTest {
         Course course = courseRepository.save(new Course(null, "LEI", "Computer Engineering"));
         Student s = student("2024001", "ana@studymatch.pt");
         s.setBirthday(LocalDate.of(2004, 5, 1));
-        s.setClassStudent("T1");
         s.setCourse(course);
         s.setGradeAverage(14.25);
         Long id = studentRepository.save(s).getIdStudent();
@@ -47,7 +46,6 @@ class StudentRepositoriesTest {
         assertEquals("ana@studymatch.pt", loaded.getEmailStudent());
         assertEquals(LocalDate.of(2004, 5, 1), loaded.getBirthday());
         assertEquals(2024, loaded.getEnrollmentYear());
-        assertEquals("T1", loaded.getClassStudent());
         assertEquals("LEI", loaded.getCourse().getCodeCourse());
         assertEquals(14.25, loaded.getGradeAverage());
     }

@@ -68,7 +68,7 @@ class StudentServiceTest {
         Course lei = new Course(3L, "LEI", "Computer Engineering");
         when(courseRepository.findById(3L)).thenReturn(Optional.of(lei));
         StudentRequest sent = new StudentRequest(" 2024001 ", " Ana Costa ", " Ana@StudyMatch.pt ",
-                LocalDate.of(2004, 5, 1), 2024, "  ", new StudentRequest.CourseReference(3L));
+                LocalDate.of(2004, 5, 1), 2024, new StudentRequest.CourseReference(3L));
 
         Student created = service.createStudent(sent);
 
@@ -77,7 +77,6 @@ class StudentServiceTest {
         assertEquals("Ana Costa", created.getNameStudent());
         assertEquals("ana@studymatch.pt", created.getEmailStudent());
         assertEquals(LocalDate.of(2004, 5, 1), created.getBirthday());
-        assertNull(created.getClassStudent());
         assertSame(lei, created.getCourse());
         assertNull(created.getGradeAverage());
     }
@@ -110,7 +109,7 @@ class StudentServiceTest {
     @DisplayName("createStudent with a course that does not exist fails with 404")
     void createWithMissingCourse() {
         when(courseRepository.findById(9L)).thenReturn(Optional.empty());
-        StudentRequest sent = new StudentRequest("1", "Student 1", "a@x.pt", null, 2024, null,
+        StudentRequest sent = new StudentRequest("1", "Student 1", "a@x.pt", null, 2024,
                 new StudentRequest.CourseReference(9L));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> service.createStudent(sent));
@@ -127,14 +126,13 @@ class StudentServiceTest {
         when(studentRepository.findById(1L)).thenReturn(Optional.of(stored));
         when(studentRepository.findByNumberStudent("1")).thenReturn(stored);
         when(studentRepository.findByEmailStudent("a@x.pt")).thenReturn(stored);
-        StudentRequest changes = new StudentRequest("1", "New name", "a@x.pt", null, 2022, "T2", null);
+        StudentRequest changes = new StudentRequest("1", "New name", "a@x.pt", null, 2022, null);
 
         Student result = service.updateStudent(1L, changes);
 
         assertSame(stored, result);
         assertEquals("New name", result.getNameStudent());
         assertEquals(2022, result.getEnrollmentYear());
-        assertEquals("T2", result.getClassStudent());
         assertEquals(13.0, result.getGradeAverage());
     }
 

@@ -16,7 +16,7 @@ import java.time.LocalDate;
 /**
  * A student registered in StudyMatch (entity Student of the UML).
  * Each student has a unique student number and e-mail, the year in which they enrolled
- * and, optionally, a birthday, a class and the course they attend.
+ * and, optionally, a birthday and the course they attend.
  * The grade average is calculated by the server from the grades of the enrolled curricular units.
  */
 @Entity

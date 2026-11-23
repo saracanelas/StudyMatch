@@ -21,7 +21,6 @@ public record StudentRequest(
         @NotBlank @Email @Size(max = 100) String emailStudent,
         @Past LocalDate birthday,
         @NotNull @Min(Student.MIN_ENROLLMENT_YEAR) @Max(Student.MAX_ENROLLMENT_YEAR) Integer enrollmentYear,
-        @Size(max = 20) String classStudent,
         CourseReference course
 ) {
 
@@ -31,10 +30,10 @@ public record StudentRequest(
     public record CourseReference(Long idCourse) {}
 
     /**
-     * Request with the required fields only (no birthday, class or course).
+     * Request with the required fields only (no birthday or course).
      */
     public StudentRequest(String numberStudent, String nameStudent, String emailStudent, Integer enrollmentYear) {
-        this(numberStudent, nameStudent, emailStudent, null, enrollmentYear, null, null);
+        this(numberStudent, nameStudent, emailStudent, null, enrollmentYear, null);
     }
 
     /**

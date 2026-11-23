@@ -100,16 +100,6 @@ class StudentTest {
     }
 
     @Test
-    @DisplayName("Class is optional and limited to 20 characters")
-    void classRules() {
-        Student s = valid();
-        s.setClassStudent("T".repeat(20));
-        assertTrue(validator.validate(s).isEmpty());
-        s.setClassStudent("T".repeat(21));
-        assertFalse(validator.validate(s).isEmpty());
-    }
-
-    @Test
     @DisplayName("A new student has no course and no grade average")
     void startsEmpty() {
         Student s = valid();
@@ -154,13 +144,11 @@ class StudentTest {
         s.setNameStudent("New");
         s.setEmailStudent("new@x.pt");
         s.setEnrollmentYear(2021);
-        s.setClassStudent("A");
 
         assertEquals(7L, s.getIdStudent());
         assertEquals("2", s.getNumberStudent());
         assertEquals("New", s.getNameStudent());
         assertEquals("new@x.pt", s.getEmailStudent());
         assertEquals(2021, s.getEnrollmentYear());
-        assertEquals("A", s.getClassStudent());
     }
 }
