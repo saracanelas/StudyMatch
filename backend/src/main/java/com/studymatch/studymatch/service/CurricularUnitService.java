@@ -13,12 +13,15 @@ import java.util.List;
 public class CurricularUnitService {
 
     private final CurricularUnitRepository curricularUnitRepository;
+    private final GradeAverageService gradeAverageService;
 
     /**
-     * Receives the repository used to read and save curricular units.
+     * Receives the repository used to read and save curricular units and the service that
+     * recalculates the students' averages when the ECTS of a unit change.
      */
-    public CurricularUnitService(CurricularUnitRepository curricularUnitRepository) {
+    public CurricularUnitService(CurricularUnitRepository curricularUnitRepository, GradeAverageService gradeAverageService) {
         this.curricularUnitRepository = curricularUnitRepository;
+        this.gradeAverageService = gradeAverageService;
     }
 
     /**
@@ -39,11 +42,12 @@ public class CurricularUnitService {
                     "Já existe uma UC com o código " + newUnit.getCodeUnit());
         }
         CurricularUnit unit = new CurricularUnit(null, newUnit.getCodeUnit(), newUnit.getNameUnit());
+        unit.setEcts(newUnit.getEcts() != null ? newUnit.getEcts() : CurricularUnit.DEFAULT_ECTS);
         return curricularUnitRepository.save(unit);
     }
 
     /**
-     * Changes the code and name of an existing curricular unit, keeping codes unique.
+     * Changes the code, name and ECTS of an existing curricular unit, keeping codes unique.
      */
     @Transactional
     public CurricularUnit updateCurricularUnit(Long id, CurricularUnit updatedUnit) {
@@ -57,6 +61,11 @@ public class CurricularUnitService {
         }
         unit.setCodeUnit(updatedUnit.getCodeUnit());
         unit.setNameUnit(updatedUnit.getNameUnit());
+        if (updatedUnit.getEcts() != null && !updatedUnit.getEcts().equals(unit.getEcts())) {
+            unit.setEcts(updatedUnit.getEcts());
+            // the ECTS are the weights of the grade averages, so the enrolled students must be updated
+            gradeAverageService.recalculateForUnit(id);
+        }
         return unit; // saved automatically when the transaction ends
     }
 }
