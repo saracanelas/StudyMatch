@@ -2,7 +2,10 @@ package com.studymatch.studymatch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +28,16 @@ public class CurricularUnit {
     @Size(max = 50)
     @Column(nullable = false, length = 50)
     private String nameUnit;
+
+    /** Number of ECTS credits given to a curricular unit when none is indicated. */
+    public static final int DEFAULT_ECTS = 6;
+
+    // ECTS credits: the weight of this unit in the students' grade average
+    @NotNull
+    @Min(1)
+    @Max(60)
+    @Column(nullable = false, columnDefinition = "integer default " + DEFAULT_ECTS)
+    private Integer ects = DEFAULT_ECTS;
 
     // Ignored in JSON so that course -> units -> courses does not loop forever
     @JsonIgnore
@@ -87,5 +100,19 @@ public class CurricularUnit {
      */
     public List<Course> getCourses() {
         return courses;
+    }
+
+    /**
+     * Returns the number of ECTS credits of the unit.
+     */
+    public Integer getEcts() {
+        return ects;
+    }
+
+    /**
+     * Changes the number of ECTS credits of the unit.
+     */
+    public void setEcts(Integer ects) {
+        this.ects = ects;
     }
 }
