@@ -1,96 +1,69 @@
 import { useState } from "react";
 import { loginAdmin } from "./Admin.js";
-import "./AdminLogin.css";
+import { Brand, Button, ErrorBanner, Field } from "./components/ui";
 
-export default function Login({ onLogin }) {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+/** Administrator login page; calls `onLogin(email)` after a successful login. */
+export default function AdminLogin({ onLogin }) {
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
 
-  // Show authentication errors and prevent duplicate submissions.
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+    // Show authentication errors and prevent duplicate submissions
+    const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
-    setIsSubmitting(true);
-
-    try {
-      // loginAdmin calls the backend authentication endpoint.
-      await loginAdmin(email, password);
-
-      onLogin();
-    } catch (err) {
-      // Keep the form visible and show the backend error to the user.
-      setError(err.message);
-    } finally {
-      // Re-enable the button after the request finishes.
-      setIsSubmitting(false);
+    async function handleSubmit(event) {
+        event.preventDefault();
+        setError("");
+        setIsSubmitting(true);
+        try {
+            await loginAdmin(email, password);
+            onLogin(email.trim());
+        } catch (err) {
+            // Keep the form visible and show the error to the user
+            setError(err.message);
+            setIsSubmitting(false);
+        }
     }
-  };
-  return (
-    <div className="login-page">
-      {/* Background forms */}
-      <svg className="blob blob-top" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="gTop" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#DBB8E3" />
-            <stop offset="100%" stopColor="#E9D7FA" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 0 H400 V230 C340 250 270 235 240 190 C215 150 225 110 180 80 C140 55 60 50 0 0 Z"
-          fill="url(#gTop)"
-        />
-      </svg>
 
-      <svg className="blob blob-bottom" viewBox="0 0 300 300" preserveAspectRatio="none" aria-hidden="true">
-        <defs>
-          <linearGradient id="gBottom" x1="0" y1="1" x2="1" y2="0">
-            <stop offset="0%" stopColor="#DBB8E3" />
-            <stop offset="100%" stopColor="#E9D7FA" />
-          </linearGradient>
-        </defs>
-        <path
-          d="M0 40 C60 30 105 50 112 110 C118 170 150 200 190 240 C215 265 240 285 260 300 H0 Z"
-          fill="url(#gBottom)"
-        />
-      </svg>
-        {/*login square*/}
-      <form className="card" onSubmit={handleSubmit}>
-        <div className="logo">UPT</div>
+    return (
+        <div className="grid min-h-screen place-items-center bg-page px-4 py-10">
+            <div className="w-full max-w-md">
+                <div className="mb-8 flex justify-center">
+                    <Brand size="lg" />
+                </div>
 
-        <h1>Welcome back!</h1>
-        <p className="subtitle">Admin Login</p>
+                <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-8 shadow-[0_1px_2px_rgba(37,34,47,0.04)]">
+                    <h1 className="text-2xl font-bold tracking-tight">Bem-vindo(a) de volta</h1>
+                    <p className="mt-1.5 text-sm text-muted">Inicie sessão na administração académica.</p>
 
-        <label className="field">
-          <span>Email</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
-        </label>
+                    <div className="mt-7 space-y-5">
+                        <Field
+                            label="Email"
+                            type="email"
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            autoComplete="email"
+                            placeholder="admin@studymatch.pt"
+                            required
+                        />
+                        <Field
+                            label="Palavra-passe"
+                            type="password"
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            autoComplete="current-password"
+                            required
+                        />
+                        <ErrorBanner message={error} />
+                    </div>
 
-        <label className="field">
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="current-password"
-            required
-          />
-        </label>
+                    <Button type="submit" variant="primary" size="lg" disabled={isSubmitting} className="mt-7 w-full">
+                        {isSubmitting ? "A entrar…" : "Entrar"}
+                    </Button>
+                </form>
 
-        {error && <p role="alert">{error}</p>}
-        <button type="submit" className="btn-login" disabled={isSubmitting}>
-          {isSubmitting ? "A entrar..." : "Login"}
-        </button>
-        
-      </form>
-    </div>
-  );
+                <p className="mt-6 text-center text-xs text-muted">Boas ligações começam aqui.</p>
+            </div>
+        </div>
+    );
 }

@@ -1,12 +1,7 @@
-import { useEffect, useState } from "react";
-import {
-    createGroupConfiguration,
-    deleteGroupConfiguration,
-    getAllCurricularUnits,
-    getGroupConfiguration,
-    getUnitStudents,
-} from "../api";
-import TextField from "../components/TextField";
+import { useState } from "react";
+import { createGroupConfiguration, deleteGroupConfiguration, getGroupConfiguration, getUnitStudents } from "../api";
+import { Button, Card, ErrorBanner, Field, Notice, PageHeader, SectionTitle, SelectField } from "../components/ui";
+import { CheckIcon, GroupsIcon, InfoIcon } from "../components/Icons";
 
 const MIN_STUDENTS = 2;
 const MAX_STUDENTS = 10;
@@ -21,8 +16,7 @@ function resizeRoles(roles, count) {
  * A configuration is final once submitted: only the administrator can delete it (with every student answer)
  * so a new one can be created.
  */
-export default function GroupConfigurationPage() {
-    const [units, setUnits] = useState([]);
+export default function GroupConfigurationPage({ units, onNotify }) {
     const [selectedUnitId, setSelectedUnitId] = useState("");
     const [savedConfiguration, setSavedConfiguration] = useState(null); // null = unit has no configuration
     const [studentsInUnit, setStudentsInUnit] = useState(0);
@@ -30,39 +24,30 @@ export default function GroupConfigurationPage() {
     const [roles, setRoles] = useState(resizeRoles([], MIN_STUDENTS));
     const [isLoading, setIsLoading] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [feedback, setFeedback] = useState(null); // { type: "success" | "error", message }
+    const [formError, setFormError] = useState("");
 
-    // Loads the curricular units once when the page opens
-    useEffect(() => {
-        let isMounted = true;
-        getAllCurricularUnits()
-            .then((loadedUnits) => isMounted && setUnits(loadedUnits))
-            .catch((error) => isMounted && setFeedback({ type: "error", message: error.message }));
-        return () => { isMounted = false; };
-    }, []);
+    const selectedUnit = units.find((unit) => String(unit.id) === String(selectedUnitId));
+    const maxStudents = Math.min(MAX_STUDENTS, Math.max(studentsInUnit, MIN_STUDENTS));
 
     function resetForm() {
         setNumberOfStudents(MIN_STUDENTS);
         setRoles(resizeRoles([], MIN_STUDENTS));
+        setFormError("");
     }
 
     /** Selects a unit and loads its configuration and how many students it has. */
     async function handleSelectUnit(unitId) {
         setSelectedUnitId(unitId);
-        setFeedback(null);
         setSavedConfiguration(null);
         resetForm();
         if (!unitId) return;
         setIsLoading(true);
         try {
-            const [configuration, students] = await Promise.all([
-                getGroupConfiguration(unitId),
-                getUnitStudents(unitId),
-            ]);
+            const [configuration, students] = await Promise.all([getGroupConfiguration(unitId), getUnitStudents(unitId)]);
             setSavedConfiguration(configuration);
             setStudentsInUnit(students.length);
         } catch (error) {
-            setFeedback({ type: "error", message: error.message });
+            onNotify("error", error.message);
         } finally {
             setIsLoading(false);
         }
@@ -100,13 +85,11 @@ export default function GroupConfigurationPage() {
     async function handleSubmit(event) {
         event.preventDefault();
         const validationError = validate();
-        if (validationError) {
-            setFeedback({ type: "error", message: validationError });
-            return;
-        }
+        setFormError(validationError ?? "");
+        if (validationError) return;
         const confirmed = window.confirm(
             "Depois de submetida, a configuração não pode ser alterada. Para a mudar terá de pedir ao " +
-            "administrador para a eliminar. Deseja submeter?"
+                "administrador para a eliminar. Deseja submeter?"
         );
         if (!confirmed) return;
         setIsSubmitting(true);
@@ -116,12 +99,9 @@ export default function GroupConfigurationPage() {
                 roles: roles.map((role) => role.trim()),
             });
             setSavedConfiguration(saved);
-            setFeedback({
-                type: "success",
-                message: "Configuração de grupos criada com sucesso. Os alunos da UC foram notificados.",
-            });
+            onNotify("success", "Configuração de grupos criada. Os alunos da UC foram notificados.");
         } catch (error) {
-            setFeedback({ type: "error", message: error.message });
+            setFormError(error.message);
         } finally {
             setIsSubmitting(false);
         }
@@ -137,111 +117,123 @@ export default function GroupConfigurationPage() {
             await deleteGroupConfiguration(selectedUnitId);
             setSavedConfiguration(null);
             resetForm();
-            setFeedback({ type: "success", message: "Configuração e respostas eliminadas. Já pode criar uma nova." });
+            onNotify("success", "Configuração e respostas eliminadas. Já pode criar uma nova.");
         } catch (error) {
-            setFeedback({ type: "error", message: error.message });
+            onNotify("error", error.message);
         }
     }
 
     return (
-        <div className="max-w-xl">
-            <h2 className="mb-4 text-2xl font-bold">Configuração de Grupos</h2>
+        <div className="mx-auto max-w-[880px]">
+            <PageHeader
+                title="Configuração de grupos"
+                description="Defina, para cada UC, quantos alunos tem cada grupo e a role de cada membro."
+            />
 
-            {feedback && (
-                <p
-                    role={feedback.type === "error" ? "alert" : "status"}
-                    className={`mb-4 rounded-lg p-3 ${
-                        feedback.type === "error" ? "bg-white text-red-700" : "bg-green-100 text-green-800"
-                    }`}
-                >
-                    {feedback.message}
-                </p>
-            )}
-
-            <label className="mb-4 flex flex-col gap-1 font-medium">
-                Unidade curricular
-                <select
-                    value={selectedUnitId}
-                    onChange={(event) => handleSelectUnit(event.target.value)}
-                    className="rounded-lg border border-lilac bg-white px-3 py-2 font-normal outline-none focus:border-purple focus:ring-2 focus:ring-blue"
-                >
+            <Card className="mt-6">
+                <SelectField label="Unidade curricular" value={selectedUnitId} onChange={(event) => handleSelectUnit(event.target.value)}>
                     <option value="">Escolha uma unidade curricular</option>
                     {units.map((unit) => (
                         <option key={unit.id} value={unit.id}>
-                            {unit.code} – {unit.name}
+                            {unit.code} · {unit.name}
                         </option>
                     ))}
-                </select>
-            </label>
+                </SelectField>
+            </Card>
 
-            {isLoading && <p>A carregar...</p>}
+            {isLoading && <p className="py-12 text-center text-sm text-muted">A carregar a configuração…</p>}
 
-            {selectedUnitId && !isLoading && savedConfiguration && (
-                <div className="space-y-4 rounded-2xl bg-blue p-6">
-                    <p className="text-sm">
-                        Esta configuração já foi submetida e é final. Para a alterar, é necessário pedir ao
-                        administrador para a eliminar (juntamente com as respostas dos alunos).
-                    </p>
-                    <p><span className="font-medium">Alunos por grupo:</span> {savedConfiguration.numberOfStudents}</p>
+            {selectedUnit && !isLoading && savedConfiguration && (
+                <Card className="mt-4 space-y-6">
+                    <SectionTitle
+                        title="Configuração submetida"
+                        aside={`${selectedUnit.code} · final`}
+                        description="Esta configuração é final. Para a alterar, o administrador tem de a eliminar (juntamente com as respostas dos alunos)."
+                    />
+                    <div className="flex items-center gap-3 rounded-lg bg-page px-4 py-3">
+                        <span className="grid size-9 place-items-center rounded-lg bg-brand-soft text-brand">
+                            <GroupsIcon size={18} />
+                        </span>
+                        <p className="text-sm">
+                            <span className="text-[22px] font-semibold">{savedConfiguration.numberOfStudents}</span>
+                            <span className="ml-2 text-muted">alunos por grupo</span>
+                        </p>
+                    </div>
                     <div>
-                        <p className="mb-1 font-medium">Role de cada membro</p>
-                        <ol className="list-decimal space-y-1 pl-6">
-                            {savedConfiguration.roles.map((role, index) => <li key={index}>{role}</li>)}
+                        <p className="mb-2 text-sm font-medium">Role de cada membro</p>
+                        <ol className="overflow-hidden rounded-lg border border-line">
+                            {savedConfiguration.roles.map((role, index) => (
+                                <li key={index} className="flex items-center gap-3 border-b border-line px-4 py-3 text-sm last:border-b-0">
+                                    <span className="grid size-6 place-items-center rounded-md bg-page text-xs font-semibold text-muted">{index + 1}</span>
+                                    {role}
+                                </li>
+                            ))}
                         </ol>
                     </div>
-                    <div className="border-t border-lilac pt-4">
-                        <p className="mb-2 text-sm opacity-70">Ação reservada ao administrador</p>
-                        <button
-                            type="button"
-                            onClick={handleDelete}
-                            className="rounded-lg bg-white px-4 py-2 font-semibold text-red-700 hover:bg-lavender"
-                        >
+                    <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="text-xs text-muted">Ação reservada ao administrador.</p>
+                        <Button variant="danger" onClick={handleDelete}>
                             Eliminar configuração e respostas
-                        </button>
+                        </Button>
                     </div>
-                </div>
+                </Card>
             )}
 
-            {selectedUnitId && !isLoading && !savedConfiguration && (
-                <form onSubmit={handleSubmit} noValidate className="space-y-4 rounded-2xl bg-blue p-6">
-                    <p className="text-sm">
-                        Esta unidade ainda não tem configuração. Alunos associados à UC: <strong>{studentsInUnit}</strong>.
-                    </p>
-                    {studentsInUnit < MIN_STUDENTS && (
-                        <p className="rounded-lg bg-white p-3 text-sm text-red-700">
-                            A UC precisa de pelo menos {MIN_STUDENTS} alunos associados para formar grupos.
-                            Associe alunos na página "Alunos das UCs".
-                        </p>
-                    )}
-                    <TextField
-                        label={`Número de alunos por grupo (${MIN_STUDENTS}–${Math.min(MAX_STUDENTS, Math.max(studentsInUnit, MIN_STUDENTS))})`}
-                        type="number"
-                        min={MIN_STUDENTS}
-                        max={Math.min(MAX_STUDENTS, Math.max(studentsInUnit, MIN_STUDENTS))}
-                        value={numberOfStudents}
-                        onChange={(event) => handleNumberChange(event.target.value)}
-                    />
-                    <fieldset className="space-y-2">
-                        <legend className="mb-1 font-medium">Role de cada membro</legend>
-                        {roles.map((role, index) => (
-                            <TextField
-                                key={index}
-                                label={`Membro ${index + 1}`}
-                                value={role}
-                                maxLength={50}
-                                placeholder="ex.: Líder, Programador, Tester"
-                                onChange={(event) => handleRoleChange(index, event.target.value)}
-                            />
-                        ))}
-                    </fieldset>
-                    <button
-                        type="submit"
-                        disabled={isSubmitting}
-                        className="rounded-lg bg-pink px-4 py-2 font-semibold hover:bg-lilac disabled:opacity-50"
-                    >
-                        Submeter configuração
-                    </button>
+            {selectedUnit && !isLoading && !savedConfiguration && (
+                <form onSubmit={handleSubmit} noValidate>
+                    <Card className="mt-4 space-y-6">
+                        <SectionTitle
+                            title="Nova configuração"
+                            aside={`${studentsInUnit} aluno(s) na UC`}
+                            description="Esta UC ainda não tem configuração de grupos. Depois de submetida, os alunos são notificados."
+                        />
+                        {studentsInUnit < MIN_STUDENTS && (
+                            <Notice tone="rose" icon={InfoIcon}>
+                                A UC precisa de pelo menos {MIN_STUDENTS} alunos associados para formar grupos. Associe alunos em
+                                “Alunos das UCs”.
+                            </Notice>
+                        )}
+                        <Field
+                            label={`Número de alunos por grupo (${MIN_STUDENTS}–${maxStudents})`}
+                            type="number"
+                            min={MIN_STUDENTS}
+                            max={maxStudents}
+                            value={numberOfStudents}
+                            onChange={(event) => handleNumberChange(event.target.value)}
+                        />
+                        <fieldset className="space-y-3">
+                            <legend className="mb-3 text-sm font-medium">Role de cada membro</legend>
+                            {roles.map((role, index) => (
+                                <div key={index} className="flex items-center gap-3">
+                                    <span className="grid size-8 shrink-0 place-items-center rounded-md bg-page text-xs font-semibold text-muted">
+                                        {index + 1}
+                                    </span>
+                                    <input
+                                        value={role}
+                                        maxLength={50}
+                                        aria-label={`Role do membro ${index + 1}`}
+                                        placeholder="Ex.: Líder, Programador, Tester"
+                                        onChange={(event) => handleRoleChange(index, event.target.value)}
+                                        className="h-11 w-full rounded-lg border border-line bg-field px-3.5 text-sm outline-none transition focus:border-brand focus:ring-3 focus:ring-brand/15"
+                                    />
+                                </div>
+                            ))}
+                        </fieldset>
+                        <ErrorBanner message={formError} />
+                        <div className="flex flex-col gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs text-muted">Depois de submetida, a configuração não pode ser alterada.</p>
+                            <Button type="submit" variant="primary" disabled={isSubmitting}>
+                                <CheckIcon size={16} strokeWidth={2.4} /> {isSubmitting ? "A submeter…" : "Submeter configuração"}
+                            </Button>
+                        </div>
+                    </Card>
                 </form>
+            )}
+
+            {!selectedUnitId && (
+                <p className="mt-5 flex items-center gap-2 text-xs text-muted">
+                    <InfoIcon size={14} /> Escolha uma UC para ver ou criar a sua configuração de grupos.
+                </p>
             )}
         </div>
     );
