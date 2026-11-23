@@ -1,5 +1,6 @@
 package com.studymatch.studymatch.controller;
 
+import com.studymatch.studymatch.dto.StudentRequest;
 import com.studymatch.studymatch.model.Student;
 import com.studymatch.studymatch.service.StudentService;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,7 @@ class StudentAdminControllerTest {
     @Test
     @DisplayName("POST /api/students creates the student and returns 201")
     void create() throws Exception {
-        when(studentService.createStudent(any(Student.class))).thenReturn(ana());
+        when(studentService.createStudent(any(StudentRequest.class))).thenReturn(ana());
 
         mockMvc.perform(post("/api/students").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
                 .andExpect(status().isCreated())
@@ -78,7 +79,7 @@ class StudentAdminControllerTest {
     @Test
     @DisplayName("POST /api/students returns 409 with { error } when the number is taken")
     void createConflict() throws Exception {
-        when(studentService.createStudent(any(Student.class)))
+        when(studentService.createStudent(any(StudentRequest.class)))
                 .thenThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Já existe um estudante com o número 2024001"));
 
         mockMvc.perform(post("/api/students").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))
@@ -109,8 +110,8 @@ class StudentAdminControllerTest {
     @Test
     @DisplayName("PUT /api/students/{id} updates the student, or returns 404 with { error }")
     void update() throws Exception {
-        when(studentService.updateStudent(eq(1L), any(Student.class))).thenReturn(ana());
-        when(studentService.updateStudent(eq(99L), any(Student.class)))
+        when(studentService.updateStudent(eq(1L), any(StudentRequest.class))).thenReturn(ana());
+        when(studentService.updateStudent(eq(99L), any(StudentRequest.class)))
                 .thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Estudante 99 não encontrado"));
 
         mockMvc.perform(put("/api/students/1").contentType(MediaType.APPLICATION_JSON).content(VALID_BODY))

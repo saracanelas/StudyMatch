@@ -1,5 +1,6 @@
 package com.studymatch.studymatch.controller;
 
+import com.studymatch.studymatch.dto.StudentRequest;
 import com.studymatch.studymatch.model.Student;
 import com.studymatch.studymatch.service.StudentService;
 import jakarta.validation.Valid;
@@ -49,7 +50,7 @@ public class StudentAdminController {
      * Returns 409 if the number or e-mail is taken and 404 if the course does not exist.
      */
     @PostMapping
-    public ResponseEntity<?> createStudent(@Valid @RequestBody Student newStudent) {
+    public ResponseEntity<?> createStudent(@Valid @RequestBody StudentRequest newStudent) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(studentService.createStudent(newStudent));
         } catch (ResponseStatusException e) {
@@ -61,7 +62,7 @@ public class StudentAdminController {
      * PUT /api/students/{id} - changes the data of a student, or returns 404 / 409 with an error message.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateStudent(@PathVariable Long id, @Valid @RequestBody Student updatedStudent) {
+    public ResponseEntity<?> updateStudent(@PathVariable Long id, @Valid @RequestBody StudentRequest updatedStudent) {
         try {
             return ResponseEntity.ok(studentService.updateStudent(id, updatedStudent));
         } catch (ResponseStatusException e) {
