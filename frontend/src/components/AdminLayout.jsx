@@ -24,8 +24,14 @@ const NAV_SECTIONS = [
         items: [
             { label: "Cursos e UCs", icon: CapIcon, section: "catalog" },
             { label: "Estudantes", icon: UsersIcon, section: "students" },
-            { label: "Grupos", icon: GroupsIcon },
+            { label: "Alunos das UCs", icon: ShareIcon, section: "unitStudents" },
+            { label: "Grupos", icon: GroupsIcon, section: "groups" },
         ],
+    },
+    {
+        // Temporary: simulates the student area until students can log in
+        title: "Área do aluno (teste)",
+        items: [{ label: "Preferências de roles", icon: BellIcon, section: "rolePreferences" }],
     },
     {
         title: "Espaço de trabalho",
@@ -74,7 +80,13 @@ function NavItem({ label, icon: ItemIcon, active, available, onClick, badge }) {
     );
 }
 
-const SECTION_LABELS = { catalog: "Cursos e UCs", students: "Estudantes" };
+const SECTION_LABELS = {
+    catalog: "Cursos e UCs",
+    students: "Estudantes",
+    unitStudents: "Alunos das UCs",
+    groups: "Configuração de grupos",
+    rolePreferences: "Preferências de roles",
+};
 
 /**
  * Sidebar + top bar wrapping the admin overview pages.

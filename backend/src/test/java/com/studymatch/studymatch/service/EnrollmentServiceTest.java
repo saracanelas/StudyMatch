@@ -1,11 +1,12 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.model.CurricularUnit;
-import com.studymatch.studymatch.model.Student;
-import com.studymatch.studymatch.model.StudentCurricularUnit;
+import com.studymatch.studymatch.model.UnitEnrollment;
 import com.studymatch.studymatch.repository.CurricularUnitRepository;
-import com.studymatch.studymatch.repository.StudentCurricularUnitRepository;
-import com.studymatch.studymatch.repository.StudentRepository;
+import com.studymatch.studymatch.repository.GroupConfigurationRepository;
+import com.studymatch.studymatch.repository.RolePreferenceRepository;
+import com.studymatch.studymatch.repository.UnitEnrollmentRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,168 +18,125 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 class EnrollmentServiceTest {
 
-    private StudentCurricularUnitRepository enrollmentRepository;
-    private StudentRepository studentRepository;
+    private UnitEnrollmentRepository enrollmentRepository;
     private CurricularUnitRepository unitRepository;
-    private GradeAverageService gradeAverageService;
+    private GroupConfigurationRepository configurationRepository;
+    private RolePreferenceRepository preferenceRepository;
+    private NotificationService notificationService;
     private EnrollmentService service;
-
-    private final Student ana = new Student(1L, "1", "Ana", "a@x.pt", 2024);
-    private final CurricularUnit sq = new CurricularUnit(2L, "SQ", "Software Quality");
+    private final CurricularUnit unit = new CurricularUnit(1L, "SQ", "Software Quality");
 
     @BeforeEach
     void setUp() {
-        enrollmentRepository = Mockito.mock(StudentCurricularUnitRepository.class);
-        studentRepository = Mockito.mock(StudentRepository.class);
+        enrollmentRepository = Mockito.mock(UnitEnrollmentRepository.class);
         unitRepository = Mockito.mock(CurricularUnitRepository.class);
-        gradeAverageService = Mockito.mock(GradeAverageService.class);
-        service = new EnrollmentService(enrollmentRepository, studentRepository, unitRepository, gradeAverageService);
-
-        when(studentRepository.findById(1L)).thenReturn(Optional.of(ana));
-        when(studentRepository.findById(99L)).thenReturn(Optional.empty());
-        when(unitRepository.findById(2L)).thenReturn(Optional.of(sq));
-        when(unitRepository.findById(99L)).thenReturn(Optional.empty());
-        when(enrollmentRepository.save(any(StudentCurricularUnit.class))).thenAnswer(inv -> inv.getArgument(0));
-    }
-
-    private static ResponseStatusException fails(org.junit.jupiter.api.function.Executable action) {
-        return assertThrows(ResponseStatusException.class, action);
-    }
-
-    // ---- listing ----
-
-    @Test
-    @DisplayName("getAllEnrollments returns what the repository returns")
-    void getAll() {
-        List<StudentCurricularUnit> all = List.of(new StudentCurricularUnit(ana, sq));
-        when(enrollmentRepository.findAll()).thenReturn(all);
-
-        assertSame(all, service.getAllEnrollments());
+        configurationRepository = Mockito.mock(GroupConfigurationRepository.class);
+        preferenceRepository = Mockito.mock(RolePreferenceRepository.class);
+        notificationService = Mockito.mock(NotificationService.class);
+        service = new EnrollmentService(enrollmentRepository, unitRepository, configurationRepository,
+                preferenceRepository, notificationService);
+        when(unitRepository.findById(1L)).thenReturn(Optional.of(unit));
     }
 
     @Test
-    @DisplayName("Lists the enrollments of a unit and of a student")
-    void listByUnitAndStudent() {
-        List<StudentCurricularUnit> list = List.of(new StudentCurricularUnit(ana, sq));
-        when(enrollmentRepository.findByCurricularUnit_IdUnit(2L)).thenReturn(list);
-        when(enrollmentRepository.findByStudent_IdStudent(1L)).thenReturn(list);
+    @DisplayName("getStudents returns the student numbers of the unit")
+    void getStudents() {
+        when(enrollmentRepository.findByCurricularUnitIdUnitOrderByStudentNumber(1L))
+                .thenReturn(List.of(new UnitEnrollment(unit, "111"), new UnitEnrollment(unit, "222")));
 
-        assertSame(list, service.getEnrollmentsOfUnit(2L));
-        assertSame(list, service.getEnrollmentsOfStudent(1L));
+        assertEquals(List.of("111", "222"), service.getStudents(1L));
     }
 
     @Test
-    @DisplayName("Listing for a unit or student that does not exist fails with 404")
-    void listMissing() {
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.getEnrollmentsOfUnit(99L)).getStatusCode());
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.getEnrollmentsOfStudent(99L)).getStatusCode());
-    }
-
-    // ---- enroll ----
-
-    @Test
-    @DisplayName("enroll saves a new enrollment without a grade")
-    void enroll() {
-        StudentCurricularUnit result = service.enroll(1L, 2L);
-
-        assertSame(ana, result.getStudent());
-        assertSame(sq, result.getCurricularUnit());
-        assertNull(result.getCuGrade());
-        verify(enrollmentRepository).save(result);
+    @DisplayName("getStudents returns 404 when the unit does not exist")
+    void getStudentsUnitNotFound() {
+        ResponseStatusException e = assertThrows(ResponseStatusException.class, () -> service.getStudents(9L));
+        assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
     }
 
     @Test
-    @DisplayName("enroll fails with 400 when an id is missing")
-    void enrollMissingIds() {
-        assertEquals(HttpStatus.BAD_REQUEST, fails(() -> service.enroll(null, 2L)).getStatusCode());
-        assertEquals(HttpStatus.BAD_REQUEST, fails(() -> service.enroll(1L, null)).getStatusCode());
+    @DisplayName("enrollStudent saves the trimmed number and does not notify while the unit is closed")
+    void enrollWithoutConfiguration() {
+        assertEquals("12345", service.enrollStudent(1L, " 12345 "));
+
+        verify(enrollmentRepository).save(argThat(e -> e.getStudentNumber().equals("12345")));
+        verifyNoInteractions(notificationService);
     }
 
     @Test
-    @DisplayName("enroll fails with 404 when the student or the unit does not exist")
-    void enrollMissingEntities() {
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.enroll(99L, 2L)).getStatusCode());
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.enroll(1L, 99L)).getStatusCode());
+    @DisplayName("enrollStudent notifies the student when the unit already has a configuration")
+    void enrollWithOpenConfiguration() {
+        when(configurationRepository.existsByCurricularUnitIdUnit(1L)).thenReturn(true);
+
+        service.enrollStudent(1L, "12345");
+
+        verify(notificationService).notifyConfigurationOpened(unit, List.of("12345"));
+    }
+
+    @Test
+    @DisplayName("enrollStudent returns 409 when the student is already in the unit")
+    void enrollTwice() {
+        when(enrollmentRepository.existsByCurricularUnitIdUnitAndStudentNumber(1L, "12345")).thenReturn(true);
+
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.enrollStudent(1L, "12345"));
+        assertEquals(HttpStatus.CONFLICT, e.getStatusCode());
         verify(enrollmentRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("enroll fails with 409 when the student is already enrolled in the unit")
-    void enrollDuplicate() {
-        when(enrollmentRepository.existsByStudent_IdStudentAndCurricularUnit_IdUnit(1L, 2L)).thenReturn(true);
-
-        ResponseStatusException ex = fails(() -> service.enroll(1L, 2L));
-
-        assertEquals(HttpStatus.CONFLICT, ex.getStatusCode());
-        assertTrue(ex.getReason().contains("Ana"));
+    @DisplayName("enrollStudent returns 400 for an invalid student number")
+    void enrollInvalidNumber() {
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.enrollStudent(1L, "12 34"));
+        assertEquals(HttpStatus.BAD_REQUEST, e.getStatusCode());
         verify(enrollmentRepository, never()).save(any());
     }
 
-    // ---- grades ----
-
     @Test
-    @DisplayName("setGrade registers the grade and recalculates the student's average")
-    void setGrade() {
-        StudentCurricularUnit enrollment = new StudentCurricularUnit(ana, sq);
-        when(enrollmentRepository.findById(7L)).thenReturn(Optional.of(enrollment));
+    @DisplayName("removeStudent deletes the student's answer and the enrollment")
+    void removeStudent() {
+        UnitEnrollment enrollment = new UnitEnrollment(unit, "12345");
+        when(enrollmentRepository.findByCurricularUnitIdUnitAndStudentNumber(1L, "12345"))
+                .thenReturn(Optional.of(enrollment));
 
-        StudentCurricularUnit result = service.setGrade(7L, 17.5);
+        service.removeStudent(1L, "12345");
 
-        assertEquals(17.5, result.getCuGrade());
-        verify(gradeAverageService).recalculate(ana);
-    }
-
-    @Test
-    @DisplayName("setGrade accepts 0, 20 and null (clears the grade)")
-    void setGradeBoundaries() {
-        StudentCurricularUnit enrollment = new StudentCurricularUnit(ana, sq);
-        when(enrollmentRepository.findById(7L)).thenReturn(Optional.of(enrollment));
-
-        assertEquals(0.0, service.setGrade(7L, 0.0).getCuGrade());
-        assertEquals(20.0, service.setGrade(7L, 20.0).getCuGrade());
-        assertNull(service.setGrade(7L, null).getCuGrade());
-    }
-
-    @Test
-    @DisplayName("setGrade refuses grades outside 0-20 with 400 without touching the enrollment")
-    void setGradeOutOfRange() {
-        assertEquals(HttpStatus.BAD_REQUEST, fails(() -> service.setGrade(7L, -1.0)).getStatusCode());
-        assertEquals(HttpStatus.BAD_REQUEST, fails(() -> service.setGrade(7L, 20.5)).getStatusCode());
-        assertEquals(HttpStatus.BAD_REQUEST, fails(() -> service.setGrade(7L, Double.NaN)).getStatusCode());
-        verifyNoInteractions(enrollmentRepository, gradeAverageService);
-    }
-
-    @Test
-    @DisplayName("setGrade for an enrollment that does not exist fails with 404")
-    void setGradeMissing() {
-        when(enrollmentRepository.findById(99L)).thenReturn(Optional.empty());
-
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.setGrade(99L, 10.0)).getStatusCode());
-    }
-
-    // ---- unenroll ----
-
-    @Test
-    @DisplayName("unenroll deletes the enrollment and recalculates the student's average")
-    void unenroll() {
-        StudentCurricularUnit enrollment = new StudentCurricularUnit(ana, sq);
-        when(enrollmentRepository.findById(7L)).thenReturn(Optional.of(enrollment));
-
-        service.unenroll(7L);
-
+        verify(preferenceRepository).deleteByGroupConfigurationCurricularUnitIdUnitAndStudentNumber(1L, "12345");
         verify(enrollmentRepository).delete(enrollment);
-        verify(gradeAverageService).recalculate(ana);
     }
 
     @Test
-    @DisplayName("unenroll of an enrollment that does not exist fails with 404")
-    void unenrollMissing() {
-        when(enrollmentRepository.findById(99L)).thenReturn(Optional.empty());
+    @DisplayName("removeStudent returns 404 when the student is not in the unit")
+    void removeUnknownStudent() {
+        when(enrollmentRepository.findByCurricularUnitIdUnitAndStudentNumber(1L, "12345"))
+                .thenReturn(Optional.empty());
 
-        assertEquals(HttpStatus.NOT_FOUND, fails(() -> service.unenroll(99L)).getStatusCode());
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.removeStudent(1L, "12345"));
+        assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("getOpenUnits returns only the student's units with an open group configuration")
+    void openUnitsOnly() {
+        CurricularUnit closedUnit = new CurricularUnit(2L, "BD", "Bases de Dados");
+        CurricularUnit otherOpenUnit = new CurricularUnit(3L, "AL", "Algoritmos");
+        when(enrollmentRepository.findByStudentNumber("12345")).thenReturn(List.of(
+                new UnitEnrollment(unit, "12345"),
+                new UnitEnrollment(closedUnit, "12345"),
+                new UnitEnrollment(otherOpenUnit, "12345")));
+        when(configurationRepository.existsByCurricularUnitIdUnit(1L)).thenReturn(true);
+        when(configurationRepository.existsByCurricularUnitIdUnit(2L)).thenReturn(false);
+        when(configurationRepository.existsByCurricularUnitIdUnit(3L)).thenReturn(true);
+
+        List<CurricularUnitResponse> openUnits = service.getOpenUnits("12345");
+
+        assertEquals(List.of("AL", "SQ"), openUnits.stream().map(CurricularUnitResponse::codeUnit).toList());
     }
 }

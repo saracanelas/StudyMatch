@@ -1,6 +1,7 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.Course;
+import com.studymatch.studymatch.dto.CourseRequest;
+import com.studymatch.studymatch.dto.CourseResponse;
 import com.studymatch.studymatch.service.CourseService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ public class CourseController {
      * GET /api/courses - lists all courses with their curricular units.
      */
     @GetMapping
-    public List<Course> getAllCourses() {
+    public List<CourseResponse> getAllCourses() {
         return courseService.getAllCourses();
     }
 
@@ -48,7 +49,7 @@ public class CourseController {
      * POST /api/courses - creates a course from its code and name, or returns 409 if the code is taken.
      */
     @PostMapping
-    public ResponseEntity<?> createCourse(@Valid @RequestBody Course newCourse) {
+    public ResponseEntity<?> createCourse(@Valid @RequestBody CourseRequest newCourse) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(courseService.createCourse(newCourse));
         } catch (ResponseStatusException e) {
@@ -60,7 +61,7 @@ public class CourseController {
      * PUT /api/courses/{id} - changes the code and name of a course, or returns 404 / 409 with an error message.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCourse(@PathVariable Long id, @Valid @RequestBody Course updatedCourse) {
+    public ResponseEntity<?> updateCourse(@PathVariable Long id, @Valid @RequestBody CourseRequest updatedCourse) {
         try {
             return ResponseEntity.ok(courseService.updateCourse(id, updatedCourse));
         } catch (ResponseStatusException e) {

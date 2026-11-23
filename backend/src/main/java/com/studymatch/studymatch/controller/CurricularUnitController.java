@@ -1,6 +1,7 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.CurricularUnit;
+import com.studymatch.studymatch.dto.CurricularUnitRequest;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.service.CurricularUnitService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,7 @@ public class CurricularUnitController {
      * GET /api/units - lists all curricular units.
      */
     @GetMapping
-    public List<CurricularUnit> getAllCurricularUnits() {
+    public List<CurricularUnitResponse> getAllCurricularUnits() {
         return curricularUnitService.getAllCurricularUnits();
     }
 
@@ -36,7 +37,7 @@ public class CurricularUnitController {
      * POST /api/units - creates a curricular unit from its code and name, or returns 409 if the code is taken.
      */
     @PostMapping
-    public ResponseEntity<?> createCurricularUnit(@Valid @RequestBody CurricularUnit newUnit) {
+    public ResponseEntity<?> createCurricularUnit(@Valid @RequestBody CurricularUnitRequest newUnit) {
         try {
             return ResponseEntity.status(HttpStatus.CREATED).body(curricularUnitService.createCurricularUnit(newUnit));
         } catch (ResponseStatusException e) {
@@ -48,7 +49,7 @@ public class CurricularUnitController {
      * PUT /api/units/{id} - changes the code and name of a curricular unit, or returns 404 / 409 with an error message.
      */
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateCurricularUnit(@PathVariable Long id, @Valid @RequestBody CurricularUnit updatedUnit) {
+    public ResponseEntity<?> updateCurricularUnit(@PathVariable Long id, @Valid @RequestBody CurricularUnitRequest updatedUnit) {
         try {
             return ResponseEntity.ok(curricularUnitService.updateCurricularUnit(id, updatedUnit));
         } catch (ResponseStatusException e) {
