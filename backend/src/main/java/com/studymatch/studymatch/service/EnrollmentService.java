@@ -1,130 +1,125 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.model.CurricularUnit;
-import com.studymatch.studymatch.model.Student;
-import com.studymatch.studymatch.model.StudentCurricularUnit;
+import com.studymatch.studymatch.model.UnitEnrollment;
 import com.studymatch.studymatch.repository.CurricularUnitRepository;
-import com.studymatch.studymatch.repository.StudentCurricularUnitRepository;
-import com.studymatch.studymatch.repository.StudentRepository;
+import com.studymatch.studymatch.repository.GroupConfigurationRepository;
+import com.studymatch.studymatch.repository.RolePreferenceRepository;
+import com.studymatch.studymatch.repository.UnitEnrollmentRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
- * Enrolls students in curricular units and registers their grades,
- * keeping each student's grade average up to date.
+ * Associates students (by number, for now) with curricular units.
  */
 @Service
 public class EnrollmentService {
 
-    private final StudentCurricularUnitRepository enrollmentRepository;
-    private final StudentRepository studentRepository;
+    private final UnitEnrollmentRepository enrollmentRepository;
     private final CurricularUnitRepository curricularUnitRepository;
-    private final GradeAverageService gradeAverageService;
+    private final GroupConfigurationRepository groupConfigurationRepository;
+    private final RolePreferenceRepository rolePreferenceRepository;
+    private final NotificationService notificationService;
 
     /**
-     * Receives the repositories and the service that recalculates grade averages.
+     * Receives the repositories and the notification service used by the enrollments.
      */
-    public EnrollmentService(StudentCurricularUnitRepository enrollmentRepository,
-                             StudentRepository studentRepository,
+    public EnrollmentService(UnitEnrollmentRepository enrollmentRepository,
                              CurricularUnitRepository curricularUnitRepository,
-                             GradeAverageService gradeAverageService) {
+                             GroupConfigurationRepository groupConfigurationRepository,
+                             RolePreferenceRepository rolePreferenceRepository,
+                             NotificationService notificationService) {
         this.enrollmentRepository = enrollmentRepository;
-        this.studentRepository = studentRepository;
         this.curricularUnitRepository = curricularUnitRepository;
-        this.gradeAverageService = gradeAverageService;
+        this.groupConfigurationRepository = groupConfigurationRepository;
+        this.rolePreferenceRepository = rolePreferenceRepository;
+        this.notificationService = notificationService;
     }
 
     /**
-     * Returns every enrollment.
+     * Returns the student numbers of a curricular unit, or 404 if the unit does not exist.
      */
     @Transactional(readOnly = true)
-    public List<StudentCurricularUnit> getAllEnrollments() {
-        return enrollmentRepository.findAll();
+    public List<String> getStudents(Long idUnit) {
+        findUnit(idUnit);
+        return enrollmentRepository.findByCurricularUnitIdUnitOrderByStudentNumber(idUnit).stream()
+                .map(UnitEnrollment::getStudentNumber)
+                .toList();
     }
 
     /**
-     * Returns the enrollments (with grades) of a student, or 404 if the student does not exist.
-     */
-    @Transactional(readOnly = true)
-    public List<StudentCurricularUnit> getEnrollmentsOfStudent(Long idStudent) {
-        findStudentOrThrow(idStudent);
-        return enrollmentRepository.findByStudent_IdStudent(idStudent);
-    }
-
-    /**
-     * Returns the students enrolled in a curricular unit, or 404 if the unit does not exist.
-     */
-    @Transactional(readOnly = true)
-    public List<StudentCurricularUnit> getEnrollmentsOfUnit(Long idUnit) {
-        findUnitOrThrow(idUnit);
-        return enrollmentRepository.findByCurricularUnit_IdUnit(idUnit);
-    }
-
-    /**
-     * Enrolls a student in a curricular unit without a grade.
-     * Fails with 400 if an id is missing, 404 if the student or unit does not exist
-     * and 409 if the student is already enrolled in that unit.
+     * Associates a student with a unit. If the unit already has an open group configuration,
+     * the student is notified straight away.
      */
     @Transactional
-    public StudentCurricularUnit enroll(Long idStudent, Long idUnit) {
-        if (idStudent == null || idUnit == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Indique o estudante e a UC");
-        }
-        Student student = findStudentOrThrow(idStudent);
-        CurricularUnit unit = findUnitOrThrow(idUnit);
-        if (enrollmentRepository.existsByStudent_IdStudentAndCurricularUnit_IdUnit(idStudent, idUnit)) {
+    public String enrollStudent(Long idUnit, String studentNumber) {
+        String number = StudentNumbers.validate(studentNumber);
+        CurricularUnit unit = findUnit(idUnit);
+        if (enrollmentRepository.existsByCurricularUnitIdUnitAndStudentNumber(idUnit, number)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    student.getNameStudent() + " já está inscrito(a) em " + unit.getNameUnit());
+                    "O aluno " + number + " já está associado à UC " + unit.getCodeUnit());
         }
-        return enrollmentRepository.save(new StudentCurricularUnit(student, unit));
+        enrollmentRepository.save(new UnitEnrollment(unit, number));
+        if (groupConfigurationRepository.existsByCurricularUnitIdUnit(idUnit)) {
+            notificationService.notifyConfigurationOpened(unit, List.of(number));
+        }
+        return number;
     }
 
     /**
-     * Registers or changes the grade of an enrollment (null clears it) and updates the student's average.
-     * Fails with 400 if the grade is not between 0 and 20 and 404 if the enrollment does not exist.
+     * Removes a student from a unit, together with the role preference they submitted there.
      */
     @Transactional
-    public StudentCurricularUnit setGrade(Long idEnrollment, Double grade) {
-        if (grade != null && (grade.isNaN() || !StudentCurricularUnit.isValidGrade(grade))) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "A nota tem de estar entre 0 e 20");
-        }
-        StudentCurricularUnit enrollment = findEnrollmentOrThrow(idEnrollment);
-        enrollment.setCuGrade(grade);
-        enrollmentRepository.save(enrollment);
-        gradeAverageService.recalculate(enrollment.getStudent());
-        return enrollment;
-    }
-
-    /**
-     * Removes an enrollment and updates the student's average; 404 if it does not exist.
-     */
-    @Transactional
-    public void unenroll(Long idEnrollment) {
-        StudentCurricularUnit enrollment = findEnrollmentOrThrow(idEnrollment);
+    public void removeStudent(Long idUnit, String studentNumber) {
+        String number = StudentNumbers.validate(studentNumber);
+        CurricularUnit unit = findUnit(idUnit);
+        UnitEnrollment enrollment = enrollmentRepository.findByCurricularUnitIdUnitAndStudentNumber(idUnit, number)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "O aluno " + number + " não está associado à UC " + unit.getCodeUnit()));
+        rolePreferenceRepository.deleteByGroupConfigurationCurricularUnitIdUnitAndStudentNumber(idUnit, number);
         enrollmentRepository.delete(enrollment);
-        enrollmentRepository.flush();
-        gradeAverageService.recalculate(enrollment.getStudent());
     }
 
-    private Student findStudentOrThrow(Long id) {
-        return studentRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Estudante " + id + " não encontrado"));
+    /**
+     * Returns true if the student is associated with the unit.
+     */
+    @Transactional(readOnly = true)
+    public boolean isEnrolled(Long idUnit, String studentNumber) {
+        return enrollmentRepository.existsByCurricularUnitIdUnitAndStudentNumber(idUnit, studentNumber);
     }
 
-    private CurricularUnit findUnitOrThrow(Long id) {
-        return curricularUnitRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "UC " + id + " não encontrada"));
+    /**
+     * Returns how many students the unit has.
+     */
+    @Transactional(readOnly = true)
+    public long countStudents(Long idUnit) {
+        return enrollmentRepository.countByCurricularUnitIdUnit(idUnit);
     }
 
-    private StudentCurricularUnit findEnrollmentOrThrow(Long id) {
-        return enrollmentRepository.findById(id)
+    /**
+     * Returns only the units of the student whose group configuration is open,
+     * i.e. the ones where they can answer the questionnaire.
+     */
+    @Transactional(readOnly = true)
+    public List<CurricularUnitResponse> getOpenUnits(String studentNumber) {
+        String number = StudentNumbers.validate(studentNumber);
+        return enrollmentRepository.findByStudentNumber(number).stream()
+                .map(UnitEnrollment::getCurricularUnit)
+                .filter(unit -> groupConfigurationRepository.existsByCurricularUnitIdUnit(unit.getIdUnit()))
+                .sorted(Comparator.comparing(CurricularUnit::getCodeUnit))
+                .map(CurricularUnitResponse::from)
+                .toList();
+    }
+
+    private CurricularUnit findUnit(Long idUnit) {
+        return curricularUnitRepository.findById(idUnit)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Inscrição " + id + " não encontrada"));
+                        "UC " + idUnit + " não encontrada"));
     }
 }

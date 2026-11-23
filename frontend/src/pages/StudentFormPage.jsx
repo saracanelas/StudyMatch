@@ -15,7 +15,6 @@ export default function StudentFormPage({ student, courses, onCancel, onSaved })
         email: student?.email ?? "",
         birthday: student?.birthday ?? "",
         enrollmentYear: student?.enrollmentYear ?? CURRENT_YEAR,
-        className: student?.className ?? "",
         courseId: student?.courseId ?? "",
     });
     const [errorMessage, setErrorMessage] = useState("");
@@ -34,7 +33,6 @@ export default function StudentFormPage({ student, courses, onCancel, onSaved })
                 name: form.name.trim(),
                 number: form.number.trim(),
                 email: form.email.trim(),
-                className: form.className.trim(),
                 courseId: form.courseId ? Number(form.courseId) : null,
             };
             const saved = isEditing ? await updateStudent(student.id, data) : await createStudent(data);
@@ -101,7 +99,7 @@ export default function StudentFormPage({ student, courses, onCancel, onSaved })
                         onChange={update("enrollmentYear")}
                     />
                 </div>
-                <div className="grid gap-5 sm:grid-cols-2">
+                <div>
                     <label className="block">
                         <span className="mb-2 block text-sm font-medium text-ink">Curso</span>
                         <select
@@ -117,7 +115,6 @@ export default function StudentFormPage({ student, courses, onCancel, onSaved })
                             ))}
                         </select>
                     </label>
-                    <Field label="Turma" maxLength={20} placeholder="Ex.: T1" value={form.className} onChange={update("className")} />
                 </div>
             </section>
 

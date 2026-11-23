@@ -16,7 +16,7 @@ import java.time.LocalDate;
 /**
  * A student registered in StudyMatch (entity Student of the UML).
  * Each student has a unique student number and e-mail, the year in which they enrolled
- * and, optionally, a birthday, a class and the course they attend.
+ * and, optionally, a birthday and the course they attend.
  * The grade average is calculated by the server from the grades of the enrolled curricular units.
  */
 @Entity
@@ -57,10 +57,6 @@ public class Student {
     @Column(nullable = false)
     private Integer enrollmentYear;
 
-    // Class ("turma") of the student, e.g. "A" or "3LEI-T1"
-    @Size(max = 20)
-    @Column(length = 20)
-    private String classStudent;
 
     // Course the student attends; null while the student is not placed in a course.
     // Its curricular units are left out of the JSON to keep student responses small.
@@ -135,13 +131,6 @@ public class Student {
     }
 
     /**
-     * Returns the class of the student, or null if none.
-     */
-    public String getClassStudent() {
-        return classStudent;
-    }
-
-    /**
      * Returns the course the student attends, or null if none.
      */
     public Course getCourse() {
@@ -189,14 +178,6 @@ public class Student {
     public void setEnrollmentYear(Integer enrollmentYear) {
         this.enrollmentYear = enrollmentYear;
     }
-
-    /**
-     * Changes the class of the student.
-     */
-    public void setClassStudent(String classStudent) {
-        this.classStudent = classStudent;
-    }
-
     /**
      * Changes the course the student attends (null removes the student from any course).
      */

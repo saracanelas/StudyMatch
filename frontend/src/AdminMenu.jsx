@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { enrollStudent, getAllCourses, getAllCurricularUnits, getAllEnrollments, getAllStudents, setEnrollmentGrade, unenrollStudent } from "./api";
+import { createEnrollment, getAllCourses, getAllCurricularUnits, getAllEnrollments, getAllStudents, setEnrollmentGrade, unenrollStudent } from "./api";
 import AdminLayout from "./components/AdminLayout";
 import Toast from "./components/Toast";
 import CatalogPage from "./pages/CatalogPage";
 import CourseFormPage from "./pages/CourseFormPage";
+import GroupConfigurationPage from "./pages/GroupConfigurationPage";
+import RolePreferencePage from "./pages/RolePreferencePage";
+import UnitStudentsPage from "./pages/UnitStudentsPage";
 import StudentFormPage from "./pages/StudentFormPage";
 import StudentsPage from "./pages/StudentsPage";
 import UnitFormPage from "./pages/UnitFormPage";
@@ -13,7 +16,7 @@ import UnitFormPage from "./pages/UnitFormPage";
  * shows the overview pages inside the sidebar layout and opens the create / edit forms as full pages.
  */
 export default function AdminMenu({ adminEmail, onLogout }) {
-    // Open page in the sidebar: "catalog" (Cursos e UCs) or "students"
+    // Open page in the sidebar: "catalog" (Cursos e UCs), "students", "unitStudents", "groups" or "rolePreferences"
     const [section, setSection] = useState("catalog");
     // Open form: null, or { type: "course" | "unit" | "student", id } (id is null when creating)
     const [form, setForm] = useState(null);
@@ -78,7 +81,7 @@ export default function AdminMenu({ adminEmail, onLogout }) {
     }
 
     const handleEnroll = (studentId, unitId) =>
-        changeEnrollments(() => enrollStudent(studentId, unitId), "Inscrição registada.");
+        changeEnrollments(() => createEnrollment(studentId, unitId), "Inscrição registada.");
 
     const handleSetGrade = (enrollment, grade) =>
         changeEnrollments(
@@ -168,6 +171,12 @@ export default function AdminMenu({ adminEmail, onLogout }) {
                             onNewUnit={() => setForm({ type: "unit", id: null })}
                             onEditUnit={(id) => setForm({ type: "unit", id })}
                         />
+                    ) : section === "unitStudents" ? (
+                        <UnitStudentsPage units={units} students={students} onNotify={showToast} />
+                    ) : section === "groups" ? (
+                        <GroupConfigurationPage units={units} onNotify={showToast} />
+                    ) : section === "rolePreferences" ? (
+                        <RolePreferencePage onNotify={showToast} />
                     ) : (
                         <StudentsPage
                             students={students}

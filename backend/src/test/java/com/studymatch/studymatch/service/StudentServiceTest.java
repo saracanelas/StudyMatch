@@ -1,5 +1,6 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.StudentRequest;
 import com.studymatch.studymatch.model.Course;
 import com.studymatch.studymatch.model.Student;
 import com.studymatch.studymatch.repository.CourseRepository;
@@ -32,6 +33,10 @@ class StudentServiceTest {
         when(studentRepository.save(any(Student.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
+    private static StudentRequest request(String number, String email) {
+        return new StudentRequest(number, "Student " + number, email, 2024);
+    }
+
     private static Student student(Long id, String number, String email) {
         return new Student(id, number, "Student " + number, email, 2024);
     }
@@ -58,15 +63,12 @@ class StudentServiceTest {
     }
 
     @Test
-    @DisplayName("createStudent trims the data, lowercases the e-mail, links the course and ignores client id and average")
+    @DisplayName("createStudent trims the data, lowercases the e-mail, links the course and starts without id and average")
     void createStudent() {
         Course lei = new Course(3L, "LEI", "Computer Engineering");
         when(courseRepository.findById(3L)).thenReturn(Optional.of(lei));
-        Student sent = new Student(42L, " 2024001 ", " Ana Costa ", " Ana@StudyMatch.pt ", 2024);
-        sent.setBirthday(LocalDate.of(2004, 5, 1));
-        sent.setClassStudent("  ");
-        sent.setCourse(new Course(3L, null, null));
-        sent.setGradeAverage(20.0);
+        StudentRequest sent = new StudentRequest(" 2024001 ", " Ana Costa ", " Ana@StudyMatch.pt ",
+                LocalDate.of(2004, 5, 1), 2024, new StudentRequest.CourseReference(3L));
 
         Student created = service.createStudent(sent);
 
@@ -75,7 +77,6 @@ class StudentServiceTest {
         assertEquals("Ana Costa", created.getNameStudent());
         assertEquals("ana@studymatch.pt", created.getEmailStudent());
         assertEquals(LocalDate.of(2004, 5, 1), created.getBirthday());
-        assertNull(created.getClassStudent());
         assertSame(lei, created.getCourse());
         assertNull(created.getGradeAverage());
     }
@@ -83,7 +84,7 @@ class StudentServiceTest {
     @Test
     @DisplayName("createStudent without course leaves the course empty")
     void createWithoutCourse() {
-        Student created = service.createStudent(student(null, "1", "a@x.pt"));
+        Student created = service.createStudent(request("1", "a@x.pt"));
 
         assertNull(created.getCourse());
         verifyNoInteractions(courseRepository);
@@ -94,12 +95,12 @@ class StudentServiceTest {
     void createDuplicates() {
         when(studentRepository.findByNumberStudent("1")).thenReturn(student(5L, "1", "other@x.pt"));
         ResponseStatusException byNumber = assertThrows(ResponseStatusException.class,
-                () -> service.createStudent(student(null, "1", "a@x.pt")));
+                () -> service.createStudent(request("1", "a@x.pt")));
         assertEquals(HttpStatus.CONFLICT, byNumber.getStatusCode());
 
         when(studentRepository.findByEmailStudent("a@x.pt")).thenReturn(student(5L, "9", "a@x.pt"));
         ResponseStatusException byEmail = assertThrows(ResponseStatusException.class,
-                () -> service.createStudent(student(null, "2", "a@x.pt")));
+                () -> service.createStudent(request("2", "a@x.pt")));
         assertEquals(HttpStatus.CONFLICT, byEmail.getStatusCode());
         verify(studentRepository, never()).save(any());
     }
@@ -108,8 +109,8 @@ class StudentServiceTest {
     @DisplayName("createStudent with a course that does not exist fails with 404")
     void createWithMissingCourse() {
         when(courseRepository.findById(9L)).thenReturn(Optional.empty());
-        Student sent = student(null, "1", "a@x.pt");
-        sent.setCourse(new Course(9L, null, null));
+        StudentRequest sent = new StudentRequest("1", "Student 1", "a@x.pt", null, 2024,
+                new StudentRequest.CourseReference(9L));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class, () -> service.createStudent(sent));
 
@@ -125,17 +126,13 @@ class StudentServiceTest {
         when(studentRepository.findById(1L)).thenReturn(Optional.of(stored));
         when(studentRepository.findByNumberStudent("1")).thenReturn(stored);
         when(studentRepository.findByEmailStudent("a@x.pt")).thenReturn(stored);
-        Student changes = student(null, "1", "a@x.pt");
-        changes.setNameStudent("New name");
-        changes.setEnrollmentYear(2022);
-        changes.setClassStudent("T2");
+        StudentRequest changes = new StudentRequest("1", "New name", "a@x.pt", null, 2022, null);
 
         Student result = service.updateStudent(1L, changes);
 
         assertSame(stored, result);
         assertEquals("New name", result.getNameStudent());
         assertEquals(2022, result.getEnrollmentYear());
-        assertEquals("T2", result.getClassStudent());
         assertEquals(13.0, result.getGradeAverage());
     }
 
@@ -147,8 +144,8 @@ class StudentServiceTest {
         when(studentRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertEquals(HttpStatus.CONFLICT, assertThrows(ResponseStatusException.class,
-                () -> service.updateStudent(1L, student(null, "2", "a@x.pt"))).getStatusCode());
+                () -> service.updateStudent(1L, request("2", "a@x.pt"))).getStatusCode());
         assertEquals(HttpStatus.NOT_FOUND, assertThrows(ResponseStatusException.class,
-                () -> service.updateStudent(99L, student(null, "3", "c@x.pt"))).getStatusCode());
+                () -> service.updateStudent(99L, request("3", "c@x.pt"))).getStatusCode());
     }
 }
