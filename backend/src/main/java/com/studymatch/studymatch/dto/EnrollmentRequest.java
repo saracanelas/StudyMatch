@@ -1,8 +1,12 @@
 package com.studymatch.studymatch.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 /**
- * Body of POST /api/enrollments: the student to enroll and the curricular unit, e.g.
- * { "studentId": 1, "unitId": 2 }.
+ * Student number sent by the administrator to associate a student with a curricular unit.
+ * The format is checked by the service.
  */
-public record EnrollmentRequest(Long studentId, Long unitId) {
-}
+public record EnrollmentRequest(
+        @NotBlank(message = "O número de aluno é obrigatório")
+        String studentNumber
+) {}

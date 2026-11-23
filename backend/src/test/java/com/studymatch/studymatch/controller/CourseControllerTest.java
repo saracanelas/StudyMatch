@@ -1,6 +1,8 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.Course;
+import com.studymatch.studymatch.dto.CourseRequest;
+import com.studymatch.studymatch.dto.CourseResponse;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
 import com.studymatch.studymatch.service.CourseService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -33,6 +35,10 @@ class CourseControllerTest {
         return "{\"codeCourse\":\"" + code + "\",\"nameCourse\":\"" + name + "\"}";
     }
 
+    private static CourseResponse response(Long id, String code, String name) {
+        return new CourseResponse(id, code, name, List.of());
+    }
+
     private static ResponseStatusException error(HttpStatus status, String reason) {
         return new ResponseStatusException(status, reason);
     }
@@ -43,8 +49,8 @@ class CourseControllerTest {
     @DisplayName("GET /api/courses returns the list of courses")
     void getAllCourses() throws Exception {
         when(courseService.getAllCourses()).thenReturn(List.of(
-                new Course(1L, "LEI", "Computer Engineering"),
-                new Course(2L, "LGE", "Management")));
+                response(1L, "LEI", "Computer Engineering"),
+                response(2L, "LGE", "Management")));
 
         mockMvc.perform(get("/api/courses"))
                 .andExpect(status().isOk())
@@ -56,9 +62,22 @@ class CourseControllerTest {
     // ---- GET /api/courses/{id} ----
 
     @Test
+    @DisplayName("Course responses include the curricular units with the field names the frontend reads")
+    void courseResponseIncludesUnits() throws Exception {
+        when(courseService.getCourseById(1L)).thenReturn(new CourseResponse(1L, "LEI", "Computer Engineering",
+                List.of(new CurricularUnitResponse(5L, "SQ", "Software Quality"))));
+
+        mockMvc.perform(get("/api/courses/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.curricularUnits[0].idUnit").value(5))
+                .andExpect(jsonPath("$.curricularUnits[0].codeUnit").value("SQ"))
+                .andExpect(jsonPath("$.curricularUnits[0].nameUnit").value("Software Quality"));
+    }
+
+    @Test
     @DisplayName("GET /api/courses/{id} returns the course")
     void getCourseById() throws Exception {
-        when(courseService.getCourseById(1L)).thenReturn(new Course(1L, "LEI", "Computer Engineering"));
+        when(courseService.getCourseById(1L)).thenReturn(response(1L, "LEI", "Computer Engineering"));
 
         mockMvc.perform(get("/api/courses/1"))
                 .andExpect(status().isOk())
@@ -90,7 +109,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("POST /api/courses returns 201 with the created course")
     void createCourse() throws Exception {
-        when(courseService.createCourse(any(Course.class))).thenReturn(new Course(1L, "LEI", "Computer Engineering"));
+        when(courseService.createCourse(any(CourseRequest.class))).thenReturn(response(1L, "LEI", "Computer Engineering"));
 
         mockMvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON)
                         .content(body("LEI", "Computer Engineering")))
@@ -102,7 +121,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("POST /api/courses returns 409 with { error } when the code is taken")
     void createCourseConflict() throws Exception {
-        when(courseService.createCourse(any(Course.class))).thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
+        when(courseService.createCourse(any(CourseRequest.class))).thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
 
         mockMvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON)
                         .content(body("LEI", "Computer Engineering")))
@@ -141,7 +160,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("POST /api/courses with a 12-character code is accepted")
     void createCourseCodeMaxLength() throws Exception {
-        when(courseService.createCourse(any(Course.class))).thenReturn(new Course(1L, "C".repeat(12), "Name"));
+        when(courseService.createCourse(any(CourseRequest.class))).thenReturn(response(1L, "C".repeat(12), "Name"));
 
         mockMvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON)
                         .content(body("C".repeat(12), "Name")))
@@ -158,12 +177,25 @@ class CourseControllerTest {
         verifyNoInteractions(courseService);
     }
 
+    @Test
+    @DisplayName("POST /api/courses ignores an idCourse sent by the client")
+    void createCourseIgnoresClientId() throws Exception {
+        when(courseService.createCourse(any(CourseRequest.class))).thenReturn(response(1L, "LEI", "Computer Engineering"));
+
+        mockMvc.perform(post("/api/courses").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idCourse\":99,\"codeCourse\":\"LEI\",\"nameCourse\":\"Computer Engineering\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.idCourse").value(1));
+
+        verify(courseService).createCourse(new CourseRequest("LEI", "Computer Engineering"));
+    }
+
     // ---- PUT /api/courses/{id} ----
 
     @Test
     @DisplayName("PUT /api/courses/{id} returns 200 with the updated course")
     void updateCourse() throws Exception {
-        when(courseService.updateCourse(eq(1L), any(Course.class))).thenReturn(new Course(1L, "NEW", "New name"));
+        when(courseService.updateCourse(eq(1L), any(CourseRequest.class))).thenReturn(response(1L, "NEW", "New name"));
 
         mockMvc.perform(put("/api/courses/1").contentType(MediaType.APPLICATION_JSON).content(body("NEW", "New name")))
                 .andExpect(status().isOk())
@@ -174,7 +206,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("PUT /api/courses/{id} returns 404 when the course does not exist")
     void updateCourseNotFound() throws Exception {
-        when(courseService.updateCourse(eq(9L), any(Course.class))).thenThrow(error(HttpStatus.NOT_FOUND, "Course 9 not found"));
+        when(courseService.updateCourse(eq(9L), any(CourseRequest.class))).thenThrow(error(HttpStatus.NOT_FOUND, "Course 9 not found"));
 
         mockMvc.perform(put("/api/courses/9").contentType(MediaType.APPLICATION_JSON).content(body("NEW", "New name")))
                 .andExpect(status().isNotFound())
@@ -184,7 +216,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("PUT /api/courses/{id} returns 409 when the code belongs to another course")
     void updateCourseConflict() throws Exception {
-        when(courseService.updateCourse(eq(1L), any(Course.class))).thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
+        when(courseService.updateCourse(eq(1L), any(CourseRequest.class))).thenThrow(error(HttpStatus.CONFLICT, "Code already used"));
 
         mockMvc.perform(put("/api/courses/1").contentType(MediaType.APPLICATION_JSON).content(body("TAKEN", "Name")))
                 .andExpect(status().isConflict())
@@ -205,7 +237,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("PUT /api/courses/{id}/units passes the list of ids to the service and returns 200")
     void setCourseUnits() throws Exception {
-        when(courseService.setCourseUnits(1L, List.of(1L, 2L))).thenReturn(new Course(1L, "LEI", "Computer Engineering"));
+        when(courseService.setCourseUnits(1L, List.of(1L, 2L))).thenReturn(response(1L, "LEI", "Computer Engineering"));
 
         mockMvc.perform(put("/api/courses/1/units").contentType(MediaType.APPLICATION_JSON).content("[1,2]"))
                 .andExpect(status().isOk())
@@ -217,7 +249,7 @@ class CourseControllerTest {
     @Test
     @DisplayName("PUT /api/courses/{id}/units accepts an empty list")
     void setCourseUnitsEmptyList() throws Exception {
-        when(courseService.setCourseUnits(1L, List.of())).thenReturn(new Course(1L, "LEI", "Computer Engineering"));
+        when(courseService.setCourseUnits(1L, List.of())).thenReturn(response(1L, "LEI", "Computer Engineering"));
 
         mockMvc.perform(put("/api/courses/1/units").contentType(MediaType.APPLICATION_JSON).content("[]"))
                 .andExpect(status().isOk());

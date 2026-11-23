@@ -1,78 +1,53 @@
 package com.studymatch.studymatch.controller;
 
-import com.studymatch.studymatch.model.Student;
-import com.studymatch.studymatch.service.StudentService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import com.studymatch.studymatch.dto.CurricularUnitResponse;
+import com.studymatch.studymatch.model.Notification;
+import com.studymatch.studymatch.service.EnrollmentService;
+import com.studymatch.studymatch.service.NotificationService;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Map;
 
+/**
+ * What a student can see: their open units and their notifications.
+ * Temporary: the student is identified by the number in the URL until students can log in.
+ */
 @RestController
-@RequestMapping("/api/students")
+@RequestMapping("/api/students/{studentNumber}")
 public class StudentController {
 
-    private final StudentService studentService;
+    private final EnrollmentService enrollmentService;
+    private final NotificationService notificationService;
 
     /**
-     * Receives the service that holds the student logic.
+     * Receives the services used to find the units and notifications of a student.
      */
-    public StudentController(StudentService studentService) {
-        this.studentService = studentService;
+    public StudentController(EnrollmentService enrollmentService, NotificationService notificationService) {
+        this.enrollmentService = enrollmentService;
+        this.notificationService = notificationService;
     }
 
     /**
-     * GET /api/students - lists all students.
+     * GET /api/students/{studentNumber}/units - units of the student whose group configuration is open.
      */
-    @GetMapping
-    public List<Student> getAllStudents() {
-        return studentService.getAllStudents();
+    @GetMapping("/units")
+    public List<CurricularUnitResponse> getOpenUnits(@PathVariable String studentNumber) {
+        return enrollmentService.getOpenUnits(studentNumber);
     }
 
     /**
-     * GET /api/students/{id} - returns one student, or 404 with an error message.
+     * GET /api/students/{studentNumber}/notifications - notifications of the student, newest first.
      */
-    @GetMapping("/{id}")
-    public ResponseEntity<?> getStudentById(@PathVariable Long id) {
-        try {
-            return ResponseEntity.ok(studentService.getStudentById(id));
-        } catch (ResponseStatusException e) {
-            return errorResponse(e);
-        }
+    @GetMapping("/notifications")
+    public List<Notification> getNotifications(@PathVariable String studentNumber) {
+        return notificationService.getNotifications(studentNumber);
     }
 
     /**
-     * POST /api/students - creates a student; the course is sent as { "course": { "idCourse": 1 } } or omitted.
-     * Returns 409 if the number or e-mail is taken and 404 if the course does not exist.
+     * PATCH /api/students/{studentNumber}/notifications/{id}/read - marks a notification as read, or 404.
      */
-    @PostMapping
-    public ResponseEntity<?> createStudent(@Valid @RequestBody Student newStudent) {
-        try {
-            return ResponseEntity.status(HttpStatus.CREATED).body(studentService.createStudent(newStudent));
-        } catch (ResponseStatusException e) {
-            return errorResponse(e);
-        }
-    }
-
-    /**
-     * PUT /api/students/{id} - changes the data of a student, or returns 404 / 409 with an error message.
-     */
-    @PutMapping("/{id}")
-    public ResponseEntity<?> updateStudent(@PathVariable Long id, @Valid @RequestBody Student updatedStudent) {
-        try {
-            return ResponseEntity.ok(studentService.updateStudent(id, updatedStudent));
-        } catch (ResponseStatusException e) {
-            return errorResponse(e);
-        }
-    }
-
-    /**
-     * Turns an error thrown by the service into a response with its status code and { "error": message }.
-     */
-    private ResponseEntity<Map<String, String>> errorResponse(ResponseStatusException e) {
-        return ResponseEntity.status(e.getStatusCode()).body(Map.of("error", e.getReason()));
+    @PatchMapping("/notifications/{idNotification}/read")
+    public Notification markAsRead(@PathVariable String studentNumber, @PathVariable Long idNotification) {
+        return notificationService.markAsRead(studentNumber, idNotification);
     }
 }

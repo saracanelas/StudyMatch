@@ -59,6 +59,40 @@ export function Field({ label, required, hint, ...inputProps }) {
     );
 }
 
+/** Labelled drop-down; the <option>s are its children. Extra props go to the <select>. */
+export function SelectField({ label, hint, children, ...selectProps }) {
+    return (
+        <label className="block">
+            <span className="mb-2 block text-sm font-medium text-ink">{label}</span>
+            <select
+                {...selectProps}
+                className="h-12 w-full rounded-lg border border-line bg-field px-3 text-[15px] outline-none transition focus:border-brand focus:ring-3 focus:ring-brand/15"
+            >
+                {children}
+            </select>
+            {hint && <span className="mt-2 block text-xs text-muted">{hint}</span>}
+        </label>
+    );
+}
+
+/** White rounded card used to group the content of a page. */
+export function Card({ className, children }) {
+    return <section className={cx("rounded-xl border border-line bg-surface p-5", className)}>{children}</section>;
+}
+
+/** Page heading with title, description and optional actions on the right. */
+export function PageHeader({ title, description, children }) {
+    return (
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h1 className="text-[28px] font-bold tracking-tight">{title}</h1>
+                <p className="mt-1 text-sm text-muted">{description}</p>
+            </div>
+            {children && <div className="flex gap-2.5">{children}</div>}
+        </div>
+    );
+}
+
 /** Text input with a search icon. */
 export function SearchInput({ className, ...props }) {
     return (
