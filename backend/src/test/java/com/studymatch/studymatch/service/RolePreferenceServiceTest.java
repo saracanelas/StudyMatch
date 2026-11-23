@@ -22,6 +22,7 @@ class RolePreferenceServiceTest {
 
     private RolePreferenceRepository preferenceRepository;
     private GroupConfigurationService configurationService;
+    private EnrollmentService enrollmentService;
     private RolePreferenceService service;
 
     // Configuration with a repeated role: the student ranks each role only once
@@ -32,8 +33,10 @@ class RolePreferenceServiceTest {
     void setUp() {
         preferenceRepository = Mockito.mock(RolePreferenceRepository.class);
         configurationService = Mockito.mock(GroupConfigurationService.class);
-        service = new RolePreferenceService(preferenceRepository, configurationService);
+        enrollmentService = Mockito.mock(EnrollmentService.class);
+        service = new RolePreferenceService(preferenceRepository, configurationService, enrollmentService);
         when(configurationService.getConfiguration(1L)).thenReturn(configuration);
+        when(enrollmentService.isEnrolled(1L, "12345")).thenReturn(true);
     }
 
     private void expectBadRequest(List<String> ranking, String message) {
@@ -126,5 +129,22 @@ class RolePreferenceServiceTest {
         ResponseStatusException e = assertThrows(ResponseStatusException.class,
                 () -> service.getPreference(1L, "12345"));
         assertEquals(HttpStatus.NOT_FOUND, e.getStatusCode());
+    }
+
+    @Test
+    @DisplayName("submitPreference returns 403 when the student does not belong to the unit")
+    void submitNotEnrolled() {
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.submitPreference(1L, "99999", List.of("Líder", "Programador", "Tester")));
+        assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
+        verify(preferenceRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("getPreference returns 403 when the student does not belong to the unit")
+    void getPreferenceNotEnrolled() {
+        ResponseStatusException e = assertThrows(ResponseStatusException.class,
+                () -> service.getPreference(1L, "99999"));
+        assertEquals(HttpStatus.FORBIDDEN, e.getStatusCode());
     }
 }

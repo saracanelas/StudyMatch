@@ -12,23 +12,24 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.regex.Pattern;
 
 @Service
 public class RolePreferenceService {
 
-    private static final Pattern STUDENT_NUMBER = Pattern.compile("[A-Za-z0-9]{1,20}");
-
     private final RolePreferenceRepository rolePreferenceRepository;
     private final GroupConfigurationService groupConfigurationService;
+    private final EnrollmentService enrollmentService;
 
     /**
-     * Receives the repository of preferences and the service used to find the group configuration.
+     * Receives the repository of preferences and the services used to find the group configuration
+     * and to check that the student belongs to the unit.
      */
     public RolePreferenceService(RolePreferenceRepository rolePreferenceRepository,
-                                 GroupConfigurationService groupConfigurationService) {
+                                 GroupConfigurationService groupConfigurationService,
+                                 EnrollmentService enrollmentService) {
         this.rolePreferenceRepository = rolePreferenceRepository;
         this.groupConfigurationService = groupConfigurationService;
+        this.enrollmentService = enrollmentService;
     }
 
     /**
@@ -41,11 +42,12 @@ public class RolePreferenceService {
     }
 
     /**
-     * Returns the preference a student already submitted for the unit, or 404 if there is none.
+     * Returns the preference a student already submitted for the unit, 404 if there is none,
+     * or 403 if the student does not belong to the unit.
      */
     @Transactional(readOnly = true)
     public RolePreference getPreference(Long idUnit, String studentNumber) {
-        validateStudentNumber(studentNumber);
+        checkEnrolled(idUnit, studentNumber);
         GroupConfiguration configuration = groupConfigurationService.getConfiguration(idUnit);
         return rolePreferenceRepository
                 .findByGroupConfigurationIdConfigurationAndStudentNumber(configuration.getIdConfiguration(), studentNumber)
@@ -55,11 +57,11 @@ public class RolePreferenceService {
 
     /**
      * Saves the ranking of a student, creating it the first time and replacing it afterwards.
-     * Every available role must appear exactly once.
+     * Every available role must appear exactly once, and only students of the unit can answer.
      */
     @Transactional
     public SubmitResult submitPreference(Long idUnit, String studentNumber, List<String> rankedRoles) {
-        validateStudentNumber(studentNumber);
+        checkEnrolled(idUnit, studentNumber);
         GroupConfiguration configuration = groupConfigurationService.getConfiguration(idUnit);
         validateRanking(availableRoles(configuration), rankedRoles);
 
@@ -83,10 +85,14 @@ public class RolePreferenceService {
         return List.copyOf(new LinkedHashSet<>(configuration.getRoles()));
     }
 
-    private static void validateStudentNumber(String studentNumber) {
-        if (studentNumber == null || !STUDENT_NUMBER.matcher(studentNumber).matches()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "O número de aluno só pode ter letras e números (máximo 20)");
+    /**
+     * Refuses an invalid student number (400) or a student that is not associated with the unit (403).
+     */
+    private void checkEnrolled(Long idUnit, String studentNumber) {
+        StudentNumbers.validate(studentNumber);
+        if (!enrollmentService.isEnrolled(idUnit, studentNumber)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "O aluno " + studentNumber + " não está associado a esta UC");
         }
     }
 

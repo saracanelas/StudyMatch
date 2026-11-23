@@ -105,13 +105,57 @@ export async function getGroupConfiguration(unitId) {
     return { numberOfStudents: configuration.numberOfStudents, roles: configuration.roles };
 }
 
-/** Creates (isNew = true) or updates the group configuration of a curricular unit and returns it. */
-export async function saveGroupConfiguration(unitId, configuration, isNew) {
+/** Creates the group configuration of a curricular unit and returns it. Once created it is final. */
+export async function createGroupConfiguration(unitId, configuration) {
     const savedConfiguration = await sendRequest(`/units/${unitId}/group-configuration`, {
-        method: isNew ? "POST" : "PUT",
+        method: "POST",
         body: JSON.stringify({ numberOfStudents: configuration.numberOfStudents, roles: configuration.roles }),
     });
     return { numberOfStudents: savedConfiguration.numberOfStudents, roles: savedConfiguration.roles };
+}
+
+/** Administrator: deletes the group configuration of a unit and every student answer associated with it. */
+export async function deleteGroupConfiguration(unitId) {
+    await sendRequest(`/units/${unitId}/group-configuration`, { method: "DELETE" });
+}
+
+// ---------- Students of a curricular unit (temporary: identified by number) ----------
+/** Returns the student numbers associated with a curricular unit. */
+export async function getUnitStudents(unitId) {
+    return sendRequest(`/units/${unitId}/students`);
+}
+
+/** Associates a student with a curricular unit and returns the saved student number. */
+export async function enrollStudent(unitId, studentNumber) {
+    const saved = await sendRequest(`/units/${unitId}/students`, {
+        method: "POST",
+        body: JSON.stringify({ studentNumber }),
+    });
+    return saved.studentNumber;
+}
+
+/** Removes a student (and their role preference) from a curricular unit. */
+export async function removeStudent(unitId, studentNumber) {
+    await sendRequest(`/units/${unitId}/students/${encodeURIComponent(studentNumber)}`, { method: "DELETE" });
+}
+
+// ---------- Student area ----------
+/** Returns the units of the student whose group configuration is open. */
+export async function getOpenUnitsForStudent(studentNumber) {
+    const units = await sendRequest(`/students/${encodeURIComponent(studentNumber)}/units`);
+    return units.map(curricularUnitFromApi);
+}
+
+/** Returns the notifications of the student, newest first. */
+export async function getNotifications(studentNumber) {
+    return sendRequest(`/students/${encodeURIComponent(studentNumber)}/notifications`);
+}
+
+/** Marks a notification of the student as read and returns it. */
+export async function markNotificationAsRead(studentNumber, notificationId) {
+    return sendRequest(`/students/${encodeURIComponent(studentNumber)}/notifications/${notificationId}/read`, {
+        method: "PATCH",
+    });
 }
 
 // ---------- Role preferences ----------

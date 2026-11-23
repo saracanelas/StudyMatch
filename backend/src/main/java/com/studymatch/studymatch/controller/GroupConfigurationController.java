@@ -32,7 +32,8 @@ public class GroupConfigurationController {
     }
 
     /**
-     * POST /api/units/{idUnit}/group-configuration - creates the configuration, or returns 404 / 409.
+     * POST /api/units/{idUnit}/group-configuration - creates the final configuration and notifies the
+     * students of the unit, or returns 400 / 404 / 409.
      */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -42,11 +43,13 @@ public class GroupConfigurationController {
     }
 
     /**
-     * PUT /api/units/{idUnit}/group-configuration - changes the existing configuration, or returns 404.
+     * DELETE /api/units/{idUnit}/group-configuration - administrator only: deletes the configuration and
+     * every student answer, so the teacher can create a new one. Returns 204, or 404.
+     * There is no PUT: a configuration is final once submitted.
      */
-    @PutMapping
-    public GroupConfiguration updateConfiguration(@PathVariable Long idUnit,
-                                                  @Valid @RequestBody GroupConfigurationRequest request) {
-        return groupConfigurationService.updateConfiguration(idUnit, request);
+    @DeleteMapping
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteConfiguration(@PathVariable Long idUnit) {
+        groupConfigurationService.deleteConfiguration(idUnit);
     }
 }

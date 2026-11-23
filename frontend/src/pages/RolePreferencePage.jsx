@@ -1,5 +1,12 @@
-import { useEffect, useState } from "react";
-import { getAllCurricularUnits, getAvailableRoles, getRolePreference, submitRolePreference } from "../api";
+import { useState } from "react";
+import {
+    getAvailableRoles,
+    getNotifications,
+    getOpenUnitsForStudent,
+    getRolePreference,
+    markNotificationAsRead,
+    submitRolePreference,
+} from "../api";
 import TextField from "../components/TextField";
 
 /** Returns a copy of `list` with the item at `from` moved to position `to`. */
@@ -12,40 +19,65 @@ function moveItem(list, from, to) {
 
 /**
  * Questionnaire where a student orders the roles of an assignment from most to least wanted.
+ * The student only sees the units they belong to whose group configuration is open, and their notifications.
  * Temporary: lives in the admin menu until students have their own login, so the student number is typed in.
  */
 export default function RolePreferencePage() {
-    const [units, setUnits] = useState([]);
-    const [selectedUnitId, setSelectedUnitId] = useState("");
     const [studentNumber, setStudentNumber] = useState("");
+    const [activeStudent, setActiveStudent] = useState(null); // number confirmed with "Entrar"
+    const [units, setUnits] = useState([]);
+    const [notifications, setNotifications] = useState([]);
+    const [selectedUnitId, setSelectedUnitId] = useState("");
     const [availableRoles, setAvailableRoles] = useState([]);
     const [ranking, setRanking] = useState(null); // null until the questionnaire is opened
     const [hasSubmitted, setHasSubmitted] = useState(false);
     const [draggedIndex, setDraggedIndex] = useState(null);
     const [feedback, setFeedback] = useState(null); // { type: "success" | "error", message }
 
-    // Loads the curricular units once when the page opens
-    useEffect(() => {
-        let isMounted = true;
-        getAllCurricularUnits()
-            .then((loadedUnits) => isMounted && setUnits(loadedUnits))
-            .catch((error) => isMounted && setFeedback({ type: "error", message: error.message }));
-        return () => { isMounted = false; };
-    }, []);
-
-    /** Loads the roles of the assignment and the ranking the student already submitted, if any. */
-    async function handleOpen(event) {
+    /** Loads the open units and the notifications of the typed student number. */
+    async function handleEnter(event) {
         event.preventDefault();
         setFeedback(null);
         setRanking(null);
+        setSelectedUnitId("");
         const number = studentNumber.trim();
-        if (!selectedUnitId || !number) {
-            setFeedback({ type: "error", message: "Escolha a unidade curricular e indique o número de aluno" });
+        if (!/^[A-Za-z0-9]{1,20}$/.test(number)) {
+            setFeedback({ type: "error", message: "O número de aluno só pode ter letras e números (máximo 20)" });
             return;
         }
         try {
-            const roles = await getAvailableRoles(selectedUnitId);
-            const savedRanking = await getRolePreference(selectedUnitId, number);
+            const [openUnits, studentNotifications] = await Promise.all([
+                getOpenUnitsForStudent(number),
+                getNotifications(number),
+            ]);
+            setUnits(openUnits);
+            setNotifications(studentNotifications);
+            setActiveStudent(number);
+        } catch (error) {
+            setActiveStudent(null);
+            setFeedback({ type: "error", message: error.message });
+        }
+    }
+
+    async function handleMarkAsRead(notificationId) {
+        try {
+            const updated = await markNotificationAsRead(activeStudent, notificationId);
+            setNotifications((current) =>
+                current.map((n) => (n.idNotification === notificationId ? updated : n)));
+        } catch (error) {
+            setFeedback({ type: "error", message: error.message });
+        }
+    }
+
+    /** Loads the roles of the assignment and the ranking the student already submitted, if any. */
+    async function handleOpenUnit(unitId) {
+        setSelectedUnitId(unitId);
+        setFeedback(null);
+        setRanking(null);
+        if (!unitId) return;
+        try {
+            const roles = await getAvailableRoles(unitId);
+            const savedRanking = await getRolePreference(unitId, activeStudent);
             // Use the saved order only if it still matches the current roles of the assignment
             const savedIsCurrent = savedRanking
                 && savedRanking.length === roles.length
@@ -87,7 +119,7 @@ export default function RolePreferencePage() {
             return;
         }
         try {
-            const saved = await submitRolePreference(selectedUnitId, studentNumber.trim(), ranking);
+            const saved = await submitRolePreference(selectedUnitId, activeStudent, ranking);
             setRanking(saved);
             setFeedback({
                 type: "success",
@@ -115,30 +147,71 @@ export default function RolePreferencePage() {
                 </p>
             )}
 
-            <form onSubmit={handleOpen} className="mb-6 space-y-4 rounded-2xl bg-blue p-6">
-                <label className="flex flex-col gap-1 font-medium">
-                    Unidade curricular
-                    <select
-                        value={selectedUnitId}
-                        onChange={(event) => { setSelectedUnitId(event.target.value); setRanking(null); }}
-                        className="rounded-lg border border-lilac bg-white px-3 py-2 font-normal outline-none focus:border-purple focus:ring-2 focus:ring-blue"
-                    >
-                        <option value="">Escolha uma unidade curricular</option>
-                        {units.map((unit) => (
-                            <option key={unit.id} value={unit.id}>{unit.code} – {unit.name}</option>
-                        ))}
-                    </select>
-                </label>
-                <TextField
-                    label="Número de aluno"
-                    value={studentNumber}
-                    maxLength={20}
-                    onChange={(event) => { setStudentNumber(event.target.value); setRanking(null); }}
-                />
+            <form onSubmit={handleEnter} className="mb-6 flex items-end gap-2 rounded-2xl bg-blue p-6">
+                <div className="flex-1">
+                    <TextField
+                        label="Número de aluno"
+                        value={studentNumber}
+                        maxLength={20}
+                        onChange={(event) => { setStudentNumber(event.target.value); setActiveStudent(null); setRanking(null); }}
+                    />
+                </div>
                 <button type="submit" className="rounded-lg bg-pink px-4 py-2 font-semibold hover:bg-lilac">
-                    Abrir questionário
+                    Entrar
                 </button>
             </form>
+
+            {activeStudent && (
+                <div className="mb-6 space-y-2 rounded-2xl bg-blue p-6">
+                    <p className="font-medium">
+                        Notificações ({notifications.filter((n) => !n.read).length} por ler)
+                    </p>
+                    {notifications.length === 0 && <p className="text-sm opacity-70">Sem notificações.</p>}
+                    <ul className="space-y-2">
+                        {notifications.map((notification) => (
+                            <li
+                                key={notification.idNotification}
+                                className={`flex items-start gap-3 rounded-lg bg-white px-3 py-2 ${notification.read ? "opacity-60" : "font-medium"}`}
+                            >
+                                <span className="flex-1 text-sm">{notification.message}</span>
+                                {!notification.read && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleMarkAsRead(notification.idNotification)}
+                                        className="shrink-0 rounded px-2 text-sm hover:bg-lavender"
+                                    >
+                                        Marcar como lida
+                                    </button>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {activeStudent && (
+                <div className="mb-6 rounded-2xl bg-blue p-6">
+                    {units.length === 0 ? (
+                        <p className="text-sm">
+                            Não tem nenhuma unidade curricular com a configuração de grupos aberta.
+                        </p>
+                    ) : (
+                        <label className="flex flex-col gap-1 font-medium">
+                            Unidade curricular (só as que têm a configuração de grupos aberta)
+                            <select
+                                value={selectedUnitId}
+                                onChange={(event) => handleOpenUnit(event.target.value)}
+                                className="rounded-lg border border-lilac bg-white px-3 py-2 font-normal outline-none focus:border-purple focus:ring-2 focus:ring-blue"
+                            >
+                                <option value="">Escolha uma unidade curricular</option>
+                                {units.map((unit) => (
+                                    <option key={unit.id} value={unit.id}>{unit.code} – {unit.name}</option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                </div>
+            )}
 
             {ranking && (
                 <div className="space-y-4 rounded-2xl bg-blue p-6">

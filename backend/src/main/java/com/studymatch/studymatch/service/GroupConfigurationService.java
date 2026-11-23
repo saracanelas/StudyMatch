@@ -5,24 +5,38 @@ import com.studymatch.studymatch.model.CurricularUnit;
 import com.studymatch.studymatch.model.GroupConfiguration;
 import com.studymatch.studymatch.repository.CurricularUnitRepository;
 import com.studymatch.studymatch.repository.GroupConfigurationRepository;
+import com.studymatch.studymatch.repository.RolePreferenceRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+/**
+ * Group configurations are final: once the teacher submits one it cannot be changed. To change it,
+ * the administrator deletes it (together with every student answer) and the teacher creates a new one.
+ */
 @Service
 public class GroupConfigurationService {
 
     private final GroupConfigurationRepository groupConfigurationRepository;
     private final CurricularUnitRepository curricularUnitRepository;
+    private final RolePreferenceRepository rolePreferenceRepository;
+    private final EnrollmentService enrollmentService;
+    private final NotificationService notificationService;
 
     /**
-     * Receives the repositories used to read and save group configurations and curricular units.
+     * Receives the repositories and services used to read, save and delete group configurations.
      */
     public GroupConfigurationService(GroupConfigurationRepository groupConfigurationRepository,
-                                     CurricularUnitRepository curricularUnitRepository) {
+                                     CurricularUnitRepository curricularUnitRepository,
+                                     RolePreferenceRepository rolePreferenceRepository,
+                                     EnrollmentService enrollmentService,
+                                     NotificationService notificationService) {
         this.groupConfigurationRepository = groupConfigurationRepository;
         this.curricularUnitRepository = curricularUnitRepository;
+        this.rolePreferenceRepository = rolePreferenceRepository;
+        this.enrollmentService = enrollmentService;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -37,28 +51,38 @@ public class GroupConfigurationService {
     }
 
     /**
-     * Creates the group configuration of a curricular unit, refusing it if the unit already has one.
+     * Creates the (final) group configuration of a curricular unit and notifies its students.
+     * Refused if the unit already has one, or if the unit has fewer students than one group needs.
      */
     @Transactional
     public GroupConfiguration createConfiguration(Long idUnit, GroupConfigurationRequest request) {
         CurricularUnit unit = findUnit(idUnit);
-        if (groupConfigurationRepository.findByCurricularUnitIdUnit(idUnit).isPresent()) {
+        if (groupConfigurationRepository.existsByCurricularUnitIdUnit(idUnit)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
-                    "A UC " + unit.getCodeUnit() + " já tem configuração de grupos");
+                    "A UC " + unit.getCodeUnit() + " já tem configuração de grupos. A configuração é final: "
+                            + "para a alterar, peça ao administrador para a eliminar");
         }
-        GroupConfiguration configuration =
-                new GroupConfiguration(unit, request.numberOfStudents(), request.trimmedRoles());
-        return groupConfigurationRepository.save(configuration);
+        long studentsInUnit = enrollmentService.countStudents(idUnit);
+        if (studentsInUnit < request.numberOfStudents()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "A UC " + unit.getCodeUnit() + " tem " + studentsInUnit + " aluno(s) associado(s); "
+                            + "não é possível formar grupos de " + request.numberOfStudents() + " alunos");
+        }
+        GroupConfiguration configuration = groupConfigurationRepository.save(
+                new GroupConfiguration(unit, request.numberOfStudents(), request.trimmedRoles()));
+        notificationService.notifyConfigurationOpened(unit, enrollmentService.getStudents(idUnit));
+        return configuration;
     }
 
     /**
-     * Changes the number of students and roles of the existing configuration of a curricular unit.
+     * Administrator only: deletes the configuration of a unit and every role preference submitted for it,
+     * so the teacher can create a new one.
      */
     @Transactional
-    public GroupConfiguration updateConfiguration(Long idUnit, GroupConfigurationRequest request) {
+    public void deleteConfiguration(Long idUnit) {
         GroupConfiguration configuration = getConfiguration(idUnit);
-        configuration.update(request.numberOfStudents(), request.trimmedRoles());
-        return configuration; // saved automatically when the transaction ends
+        rolePreferenceRepository.deleteByGroupConfigurationIdConfiguration(configuration.getIdConfiguration());
+        groupConfigurationRepository.delete(configuration);
     }
 
     private CurricularUnit findUnit(Long idUnit) {

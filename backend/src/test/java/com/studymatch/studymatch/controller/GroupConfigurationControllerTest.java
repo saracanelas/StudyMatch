@@ -95,15 +95,30 @@ class GroupConfigurationControllerTest {
     }
 
     @Test
-    @DisplayName("PUT returns 200 with the updated configuration")
-    void updateConfiguration() throws Exception {
-        when(service.updateConfiguration(eq(1L), any(GroupConfigurationRequest.class)))
-                .thenReturn(configuration(3, List.of("A", "B", "C")));
-
+    @DisplayName("PUT is not allowed: a configuration is final")
+    void updateNotAllowed() throws Exception {
         mockMvc.perform(put(URL).contentType(MediaType.APPLICATION_JSON)
                         .content("{\"numberOfStudents\":3,\"roles\":[\"A\",\"B\",\"C\"]}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.numberOfStudents").value(3));
+                .andExpect(status().isMethodNotAllowed());
+        verifyNoInteractions(service);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 204 and deletes the configuration")
+    void deleteConfiguration() throws Exception {
+        mockMvc.perform(delete(URL)).andExpect(status().isNoContent());
+        verify(service).deleteConfiguration(1L);
+    }
+
+    @Test
+    @DisplayName("DELETE returns 404 with { error } when there is no configuration")
+    void deleteConfigurationNotFound() throws Exception {
+        doThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Sem configuração"))
+                .when(service).deleteConfiguration(1L);
+
+        mockMvc.perform(delete(URL))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error").value("Sem configuração"));
     }
 
     @Test

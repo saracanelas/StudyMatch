@@ -9,6 +9,7 @@ import java.util.List;
 /**
  * Group setup of a curricular unit: how many students each group has and the role of each member.
  * The list of roles has one entry per member, so its size always equals the number of students.
+ * It is final once created: there are no setters, it can only be deleted by the administrator.
  */
 @Entity
 @Table(name = "group_configurations")
@@ -61,13 +62,4 @@ public class GroupConfiguration {
     public int getNumberOfStudents() { return numberOfStudents; }
 
     public List<String> getRoles() { return roles; }
-
-    /**
-     * Replaces the number of students and the roles of the members.
-     */
-    public void update(int numberOfStudents, List<String> roles) {
-        this.numberOfStudents = numberOfStudents;
-        this.roles.clear();
-        this.roles.addAll(roles);
-    }
 }
