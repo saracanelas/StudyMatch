@@ -1,10 +1,31 @@
 @import "tailwindcss";
 
+/* Colours of the StudyMatch design (see the admin mock-ups) */
 @theme {
-    --color-pink: #fde5f5;
-    --color-lilac: #DBB8E3;
-    --color-lavender: #FFF7FF;
-    --color-purple: #E9D7FA;
-    --color-blue: #E9D7FA;
-    --color-ink: #2D2A3E;
+    --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+
+    --color-brand: #85709f;       /* primary buttons, active tab, checkboxes */
+    --color-brand-dark: #6f5b89;
+    --color-brand-soft: #efeaf6;
+
+    --color-ink: #25222f;         /* main text */
+    --color-muted: #6e6a7a;       /* secondary text */
+    --color-subtle: #a19dab;
+
+    --color-page: #f4f2f7;        /* page background */
+    --color-surface: #ffffff;     /* cards, sidebar */
+    --color-field: #fcfbfd;       /* inputs */
+    --color-line: #e7e3ec;        /* borders */
+    --color-note: #f0edf6;        /* info boxes */
+
+    --color-rose: #f8eeef;        /* selected row, highlights */
+    --color-rose-ink: #a35f6b;
+    --color-sky: #e9effa;
+    --color-sky-ink: #4f6c97;
+    --color-mint: #e5f3ea;        /* "Editar" pills, success */
+    --color-mint-ink: #3d7a55;
+}
+
+body {
+    @apply bg-page font-sans text-ink antialiased;
 }
