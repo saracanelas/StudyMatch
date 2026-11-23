@@ -19,12 +19,14 @@ import static org.mockito.Mockito.*;
 class CurricularUnitServiceTest {
 
     private CurricularUnitRepository repository;
+    private GradeAverageService gradeAverageService;
     private CurricularUnitService service;
 
     @BeforeEach
     void setUp() {
         repository = Mockito.mock(CurricularUnitRepository.class);
-        service = new CurricularUnitService(repository);
+        gradeAverageService = Mockito.mock(GradeAverageService.class);
+        service = new CurricularUnitService(repository, gradeAverageService);
     }
 
     private CurricularUnit unit(Long id, String code, String name) {
@@ -121,5 +123,35 @@ class CurricularUnitServiceTest {
 
         assertEquals("NEW", result.getCodeUnit());
         assertEquals("New name", result.getNameUnit());
+    }
+
+    @Test
+    @DisplayName("createCurricularUnit keeps the ECTS sent, or uses the default when none is sent")
+    void createWithEcts() {
+        when(repository.save(any(CurricularUnit.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        CurricularUnit withEcts = unit(null, "SQ", "Software Quality");
+        withEcts.setEcts(7);
+        assertEquals(7, service.createCurricularUnit(withEcts).getEcts());
+
+        CurricularUnit withoutEcts = unit(null, "BD", "Databases");
+        withoutEcts.setEcts(null);
+        assertEquals(CurricularUnit.DEFAULT_ECTS, service.createCurricularUnit(withoutEcts).getEcts());
+    }
+
+    @Test
+    @DisplayName("updateCurricularUnit recalculates the averages only when the ECTS change")
+    void updateEctsRecalculatesAverages() {
+        CurricularUnit stored = unit(5L, "SQ", "Software Quality");
+        when(repository.findById(5L)).thenReturn(Optional.of(stored));
+
+        CurricularUnit sameEcts = unit(null, "SQ", "Software Quality");
+        service.updateCurricularUnit(5L, sameEcts);
+        verify(gradeAverageService, never()).recalculateForUnit(any());
+
+        CurricularUnit newEcts = unit(null, "SQ", "Software Quality");
+        newEcts.setEcts(4);
+        assertEquals(4, service.updateCurricularUnit(5L, newEcts).getEcts());
+        verify(gradeAverageService).recalculateForUnit(5L);
     }
 }
