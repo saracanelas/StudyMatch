@@ -1,5 +1,6 @@
 package com.studymatch.studymatch.service;
 
+import com.studymatch.studymatch.dto.StudentRequest;
 import com.studymatch.studymatch.model.Course;
 import com.studymatch.studymatch.model.Student;
 import com.studymatch.studymatch.repository.CourseRepository;
@@ -46,7 +47,7 @@ public class StudentService {
      * or if the indicated course does not exist. The grade average starts empty.
      */
     @Transactional
-    public Student createStudent(Student newStudent) {
+    public Student createStudent(StudentRequest newStudent) {
         Student student = new Student();
         copyFields(newStudent, student, null);
         return studentRepository.save(student);
@@ -57,7 +58,7 @@ public class StudentService {
      * The grade average is not changed here: it only depends on the grades.
      */
     @Transactional
-    public Student updateStudent(Long id, Student updatedStudent) {
+    public Student updateStudent(Long id, StudentRequest updatedStudent) {
         Student student = findStudentOrThrow(id);
         copyFields(updatedStudent, student, id);
         return student; // saved automatically when the transaction ends
@@ -67,9 +68,9 @@ public class StudentService {
      * Copies the editable fields from `source` to `target` after checking that the number and e-mail
      * are not used by another student (`ownId` is the id of the student being edited, or null).
      */
-    private void copyFields(Student source, Student target, Long ownId) {
-        String number = source.getNumberStudent().trim();
-        String email = source.getEmailStudent().trim().toLowerCase();
+    private void copyFields(StudentRequest source, Student target, Long ownId) {
+        String number = source.numberStudent().trim();
+        String email = source.emailStudent().trim().toLowerCase();
 
         Student sameNumber = studentRepository.findByNumberStudent(number);
         if (sameNumber != null && !sameNumber.getIdStudent().equals(ownId)) {
@@ -81,25 +82,23 @@ public class StudentService {
         }
 
         target.setNumberStudent(number);
-        target.setNameStudent(source.getNameStudent().trim());
+        target.setNameStudent(source.nameStudent().trim());
         target.setEmailStudent(email);
-        target.setBirthday(source.getBirthday());
-        target.setEnrollmentYear(source.getEnrollmentYear());
-        String classStudent = source.getClassStudent();
-        target.setClassStudent(classStudent == null || classStudent.isBlank() ? null : classStudent.trim());
-        target.setCourse(findCourse(source.getCourse()));
+        target.setBirthday(source.birthday());
+        target.setEnrollmentYear(source.enrollmentYear());
+        target.setCourse(findCourse(source.idCourse()));
     }
 
     /**
-     * Returns the stored course matching the id of the course sent by the client, or null if none was sent.
+     * Returns the stored course with the id sent by the client, or null if none was sent.
      */
-    private Course findCourse(Course course) {
-        if (course == null || course.getIdCourse() == null) {
+    private Course findCourse(Long idCourse) {
+        if (idCourse == null) {
             return null;
         }
-        return courseRepository.findById(course.getIdCourse())
+        return courseRepository.findById(idCourse)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Curso " + course.getIdCourse() + " não encontrado"));
+                        "Curso " + idCourse + " não encontrado"));
     }
 
     /**

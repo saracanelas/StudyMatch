@@ -272,7 +272,6 @@ function StudentPanel({ student, course, enrollments, units, onEdit, onEnroll, o
     const details = [
         course ? `${course.code} · ${course.name}` : "Sem curso",
         `Ingresso em ${student.enrollmentYear}`,
-        student.className && `Turma ${student.className}`,
         student.birthday && `Nascido(a) a ${formatDate(student.birthday)}`,
     ].filter(Boolean);
 

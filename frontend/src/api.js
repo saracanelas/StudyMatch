@@ -18,7 +18,7 @@ const curricularUnitFromApi = (unit) => ({
     ects: unit.ects,
 });
 
-/** Student: { id, number, name, email, birthday, enrollmentYear, className, courseId, gradeAverage }. */
+/** Student: { id, number, name, email, birthday, enrollmentYear, courseId, gradeAverage }. */
 const studentFromApi = (student) => ({
     id: student.idStudent,
     number: student.numberStudent,
@@ -26,7 +26,6 @@ const studentFromApi = (student) => ({
     email: student.emailStudent,
     birthday: student.birthday ?? "",
     enrollmentYear: student.enrollmentYear,
-    className: student.classStudent ?? "",
     courseId: student.course?.idCourse ?? null,
     gradeAverage: student.gradeAverage ?? null,
 });
@@ -38,7 +37,6 @@ const studentToApi = (student) => ({
     emailStudent: student.email,
     birthday: student.birthday || null,
     enrollmentYear: Number(student.enrollmentYear),
-    classStudent: student.className || null,
     course: student.courseId ? { idCourse: student.courseId } : null,
 });
 
